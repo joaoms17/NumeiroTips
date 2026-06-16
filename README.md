@@ -114,6 +114,15 @@ api/scan.ts        Vercel Cron → aciona scan-odds (rede de segurança)
   ambas marcam e over/under a partir dos golos esperados, e mercados de
   contagem para cantos/cartões/remates (`src/lib/math/poisson.ts`).
 
+**Extras**
+- **Painel** (separador *Painel*): métricas-chave, curva de P/L e da banca
+  (gráficos SVG), CLV médio e % que bate o fecho, e **export/import** dos dados
+  (backup do localStorage).
+- **Ao Vivo** (separador *Ao Vivo*): modelo *in-play* que ajusta as expectativas
+  de golos ao minuto/resultado/expulsões — captura como as equipas reagem em
+  cada situação — e devolve 1X2, próximo golo, ambas marcam e over/under para o
+  resto do jogo (`src/lib/math/inplay.ts`).
+
 ## Dados reais GRÁTIS (The Odds API)
 
 O caminho mais simples e sem custo: **[The Odds API](https://the-odds-api.com/)**

@@ -85,6 +85,8 @@ export interface AppState {
   placeBet: (vb: ValueBet, opts?: { stake?: number; book?: TargetBook }) => void;
   settleBet: (id: string, result: BetResult, fairClosingOdd?: number) => void;
   removeBet: (id: string) => void;
+  /** Substitui config/apostas a partir de um backup importado. */
+  importState: (data: { config?: Partial<EngineConfig>; bets?: TrackedBet[] }) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -201,6 +203,15 @@ export const useStore = create<AppState>((set, get) => ({
     const bets = get().bets.filter((b) => b.id !== id);
     set({ bets });
     save({ config: get().config, filters: get().filters, bets });
+  },
+
+  importState: (data) => {
+    const config = data.config
+      ? { ...get().config, ...data.config }
+      : get().config;
+    const bets = data.bets ?? get().bets;
+    set({ config, bets });
+    save({ config, filters: get().filters, bets });
   },
 }));
 

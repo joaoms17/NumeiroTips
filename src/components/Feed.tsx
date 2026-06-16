@@ -6,6 +6,7 @@
  */
 import { useStore, selectFilteredFeed } from '../state/store';
 import { useNow } from '../hooks/useNow';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { BOOK_META } from '../lib/types';
 import type { ValueBet, TargetBook } from '../lib/types';
 import type { MovementInfo } from '../state/movement';
@@ -18,6 +19,7 @@ export function Feed() {
   const movement = useStore((s) => s.movement);
   const placeBet = useStore((s) => s.placeBet);
   const now = useNow(1000);
+  const isMobile = useMediaQuery('(max-width: 760px)');
 
   if (feed.length === 0) {
     return (
@@ -30,6 +32,23 @@ export function Feed() {
             O motor está a varrer o mercado — baixa o edge mínimo ou aguarda uma janela.
           </span>
         </div>
+      </div>
+    );
+  }
+
+  // Telemóvel: cartões empilhados (sem scroll lateral).
+  if (isMobile) {
+    return (
+      <div className="feed-cards">
+        {feed.map((vb) => (
+          <FeedCard
+            key={vb.id}
+            vb={vb}
+            mov={movement[vb.id]}
+            now={now}
+            onPlace={() => placeBet(vb)}
+          />
+        ))}
       </div>
     );
   }
@@ -168,5 +187,92 @@ function MovementCell({ mov }: { mov?: MovementInfo }) {
       {mov.steam && <span title="steam: sharp move antes da casa reagir">⚡</span>} {arrow}{' '}
       {signedPct(mov.deltaProb)}
     </span>
+  );
+}
+
+/** Cartão do feed para telemóvel — tudo vertical, sem scroll lateral. */
+function FeedCard({
+  vb,
+  mov,
+  now,
+  onPlace,
+}: {
+  vb: ValueBet;
+  mov?: MovementInfo;
+  now: number;
+  onPlace: () => void;
+}) {
+  const ageSec = Math.floor((now - new Date(vb.detectedAt).getTime()) / 1000);
+  const fresh = ageSec < 6;
+  const meta = BOOK_META[vb.bestBook];
+
+  return (
+    <div className={`vb-card ${fresh ? 'fresh' : ''}`}>
+      <div className="vb-card-top">
+        <div className="vb-card-event">
+          <span className="market-chip">{marketLabel(vb.selection.market)}</span>
+          <span className="teams">
+            {vb.event.home} <span className="dim">v</span> {vb.event.away}
+          </span>
+          <span className="meta">
+            {vb.event.league} · {shortTime(vb.event.startsAt)}
+          </span>
+        </div>
+        <div className="vb-card-edge pos">{signedPct(vb.bestEdge)}</div>
+      </div>
+
+      <div className="vb-card-sel">{vb.selection.label}</div>
+
+      <div className="vb-card-odds">
+        <div className="vb-odd">
+          <span className="k">Justa</span>
+          <span className="neu mono">{odd(vb.fair.fairOdd)}</span>
+        </div>
+        {TARGETS.map((book) => {
+          const be = vb.books.find((b) => b.book === book);
+          const isBest = vb.bestBook === book && be?.isValue;
+          return (
+            <div className={`vb-odd ${isBest ? 'best' : ''}`} key={book}>
+              <span className="k">{BOOK_META[book].label}</span>
+              {be ? (
+                <span className="mono">
+                  <span className={isBest ? 'pos' : ''}>{odd(be.odd)}</span>{' '}
+                  <span className={`e ${be.edge > 0 ? 'pos' : 'neg'}`}>{signedPct(be.edge)}</span>
+                </span>
+              ) : (
+                <span className="dim">—</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="vb-card-foot">
+        <span className="muted mono">
+          Melhor <span className="pos">{meta.label} @ {odd(vb.bestOdd)}</span>
+          <span className={`risk-tag ${meta.risk}`}>{meta.risk === 'cinzenta' ? 'cinzenta' : 'SRIJ'}</span>
+        </span>
+        <span className="muted mono">Stake {eur(vb.stake)}</span>
+      </div>
+      <div className="vb-card-foot">
+        <span className="mono">
+          <MovementCell mov={mov} /> · <span className={fresh ? 'pos' : 'muted'}>{ago(vb.detectedAt, now)}</span>
+        </span>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <a
+            className="btn ghost"
+            href={vb.books.find((b) => b.book === vb.bestBook)?.deepLink ?? '#'}
+            target="_blank"
+            rel="noreferrer"
+            title="Abrir boletim"
+          >
+            ↗
+          </a>
+          <button className="btn primary" onClick={onPlace}>
+            Apostar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

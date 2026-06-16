@@ -122,4 +122,48 @@ describe('normalização The Odds API', () => {
     const all = normalizeTheOddsApi([event, event]);
     expect(all.length).toBe(snaps.length * 2);
   });
+
+  it('handicap (spreads) → mercado ah com linha relativa à casa', () => {
+    const withSpreads: TOAEvent = {
+      ...event,
+      bookmakers: [
+        {
+          key: 'pinnacle',
+          markets: [
+            {
+              key: 'spreads',
+              outcomes: [
+                { name: 'Arsenal', price: 1.9, point: -0.5 },
+                { name: 'Chelsea', price: 1.95, point: 0.5 },
+              ],
+            },
+          ],
+        },
+        {
+          key: 'betclic',
+          markets: [
+            {
+              key: 'spreads',
+              outcomes: [
+                { name: 'Arsenal', price: 2.05, point: -0.5 },
+                { name: 'Chelsea', price: 1.85, point: 0.5 },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const out = normalizeTheOddsApiEvent(withSpreads);
+    const ah = out.find((s) => s.market === 'ah');
+    expect(ah).toBeDefined();
+    expect(ah!.line).toBe(-0.5);
+    expect(ah!.selections.map((s) => s.id).sort()).toEqual([
+      'evt_abc:ah:-0.5:away',
+      'evt_abc:ah:-0.5:home',
+    ]);
+    // linha shopping: mesma seleção em casas diferentes
+    expect(ah!.quotes.pinnacle['evt_abc:ah:-0.5:home'].odd).toBe(1.9);
+    expect(ah!.quotes.betclic['evt_abc:ah:-0.5:home'].odd).toBe(2.05);
+    expect(ah!.selections.find((s) => s.id.endsWith(':home'))!.label).toBe('Arsenal (-0.5)');
+  });
 });
