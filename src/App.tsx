@@ -9,8 +9,29 @@ import { Exposure } from './components/Exposure';
 import { Settings } from './components/Settings';
 import { ago } from './lib/format';
 import { useNow } from './hooks/useNow';
+import { getDataMode } from './lib/env';
 
 type Tab = 'feed' | 'kelly' | 'tracker' | 'exposicao' | 'definicoes';
+
+function DataModeBanner() {
+  const mode = getDataMode();
+  if (mode === 'mock') {
+    return (
+      <div className="banner demo">
+        ▲ <strong>MODO DEMO</strong> — odds <strong>simuladas</strong> para mostrar a app. Não são
+        apostas reais. Liga o The Odds API (grátis) para dados a sério.
+      </div>
+    );
+  }
+  if (mode === 'theoddsapi') {
+    return (
+      <div className="banner live">
+        ● Dados reais via <strong>The Odds API</strong> (tier grátis) — sê frugal com a quota.
+      </div>
+    );
+  }
+  return null;
+}
 
 export default function App() {
   useOddsFeed();
@@ -41,6 +62,8 @@ export default function App() {
         <div className="spacer" />
         <span className="status-pill mono">{feedCount} +EV</span>
       </header>
+
+      <DataModeBanner />
 
       <nav className="tabs">
         <button className={`tab ${tab === 'feed' ? 'active' : ''}`} onClick={() => setTab('feed')}>

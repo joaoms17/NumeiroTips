@@ -47,8 +47,8 @@ casos-limite: `npm test`.
 - **Estado:** Zustand + persistência leve em `localStorage`.
 - **Backend (opcional):** Supabase (Postgres + Edge Functions + Auth + Realtime).
 - **Hosting:** Vercel (+ Cron de rede de segurança).
-- **Fonte de dados:** OddsPapi (Betclic, 1xBet, Pinnacle, Betfair numa API
-  normalizada com streaming).
+- **Fontes de dados:** The Odds API (grátis, cobre as 4 casas) ou OddsPapi
+  (pago, com streaming WebSocket). Selecionável por env var.
 
 ## Arranque rápido (sem chaves nenhumas)
 
@@ -102,7 +102,24 @@ api/scan.ts        Vercel Cron → aciona scan-odds (rede de segurança)
 - Scanner de arbitragem Betclic ⇄ 1xBet ⇄ Betfair.
 - Modelo Poisson/Dixon-Coles para cantos/cartões.
 
-## Ligar a dados reais (produção)
+## Dados reais GRÁTIS (The Odds API)
+
+O caminho mais simples e sem custo: **[The Odds API](https://the-odds-api.com/)**
+(tier grátis, 500 créditos/mês) cobre as 4 casas — Pinnacle, Betfair Exchange,
+Betclic e 1xBet. Para uso pessoal corre tudo no browser, sem backend:
+
+```bash
+# .env.local
+VITE_DATA_MODE=theoddsapi
+VITE_THE_ODDS_API_KEY=<chave grátis de the-odds-api.com/signup>
+```
+
+O motor passa a correr no cliente sobre dados reais. ⚠️ Sê frugal com a quota
+(cada chamada custa `nº_mercados × nº_regiões` créditos; o polling é a 30s e os
+créditos restantes aparecem na barra de estado). Schema público e estável → o
+adaptador (`src/data/theOddsApiNormalize.ts`) é testado contra o formato real.
+
+## Ligar a dados reais com backend (Supabase)
 
 Guia completo passo-a-passo: **[`DEPLOY.md`](DEPLOY.md)**. Em resumo:
 

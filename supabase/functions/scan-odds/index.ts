@@ -21,6 +21,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { devig, expectedValue, kellyStake } from "../_shared/math.ts";
 import { normalizeFixtureOdds, type Snapshot } from "../_shared/oddspapi.ts";
+import { normalizeTheOddsApiEvent } from "../_shared/theoddsapi.ts";
+
+// Fonte de dados: 'theoddsapi' (grátis, cobre as 4 casas) ou 'oddspapi' (pago).
+const DATA_SOURCE = (Deno.env.get("ENGINE_DATA_SOURCE") ?? "theoddsapi").toLowerCase();
 
 const EDGE_THRESHOLD = Number(Deno.env.get("ENGINE_EDGE_THRESHOLD") ?? "0.02");
 const DEVIG_METHOD = (Deno.env.get("ENGINE_DEVIG_METHOD") ?? "shin") as "shin" | "proportional";
@@ -32,6 +36,47 @@ const MAX_FIXTURES = Number(Deno.env.get("ENGINE_MAX_FIXTURES") ?? "50");
 
 const TARGET_BOOKS = ["betclic", "1xbet"];
 
+/** Dispatcher: escolhe a fonte de dados configurada. */
+async function fetchSnapshots(): Promise<Snapshot[]> {
+  if (DATA_SOURCE === "oddspapi") return fetchOddsPapi();
+  return fetchTheOddsApi();
+}
+
+// ---- The Odds API (grátis, cobre Pinnacle/Betfair/Betclic/1xBet) ------------
+async function fetchTheOddsApi(): Promise<Snapshot[]> {
+  const key = Deno.env.get("THE_ODDS_API_KEY");
+  if (!key) {
+    console.warn("[scan-odds] sem THE_ODDS_API_KEY — nada a fazer");
+    return [];
+  }
+  const base = Deno.env.get("THE_ODDS_API_BASE_URL") ?? "https://api.the-odds-api.com/v4";
+  const regions = Deno.env.get("THE_ODDS_API_REGIONS") ?? "eu";
+  const markets = Deno.env.get("THE_ODDS_API_MARKETS") ?? "h2h,totals";
+  const bookmakers = Deno.env.get("THE_ODDS_API_BOOKMAKERS") ?? "pinnacle,betfair_ex_eu,betclic,onexbet";
+  const leagues = (Deno.env.get("THE_ODDS_API_SPORTS") ??
+    "soccer_epl,soccer_spain_la_liga,soccer_italy_serie_a,soccer_france_ligue_one,soccer_germany_bundesliga,soccer_portugal_primeira_liga").split(",");
+
+  const all: Snapshot[] = [];
+  for (const sk of leagues) {
+    const params = new URLSearchParams({ regions, markets, oddsFormat: "decimal", bookmakers, apiKey: key });
+    try {
+      const res = await fetch(`${base}/sports/${sk.trim()}/odds?${params.toString()}`);
+      const remaining = res.headers.get("x-requests-remaining");
+      if (remaining != null) console.log(`[scan-odds] ${sk}: ${remaining} créditos restantes`);
+      if (!res.ok) {
+        console.warn(`[scan-odds] ${sk} HTTP ${res.status}`);
+        continue;
+      }
+      const events = await res.json();
+      for (const ev of events) all.push(...normalizeTheOddsApiEvent(ev));
+    } catch (e) {
+      console.warn("[scan-odds] liga falhou", sk, e);
+    }
+  }
+  return all;
+}
+
+// ---- OddsPapi (pago, WebSocket no Pro) --------------------------------------
 async function oddsPapiGet<T>(path: string): Promise<T> {
   const key = Deno.env.get("ODDSPAPI_API_KEY");
   const base = Deno.env.get("ODDSPAPI_BASE_URL") ?? "https://api.oddspapi.io/v1";
@@ -40,7 +85,7 @@ async function oddsPapiGet<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-async function fetchSnapshots(): Promise<Snapshot[]> {
+async function fetchOddsPapi(): Promise<Snapshot[]> {
   if (!Deno.env.get("ODDSPAPI_API_KEY")) {
     console.warn("[scan-odds] sem ODDSPAPI_API_KEY — nada a fazer");
     return [];

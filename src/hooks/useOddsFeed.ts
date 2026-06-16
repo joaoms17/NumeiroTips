@@ -1,17 +1,19 @@
 /**
- * Liga a fonte de dados ao store.
+ * Liga a fonte de dados ao store, segundo o modo efetivo (getDataMode):
  *
- * - Modo mock (default): instancia o MockOddsProvider local.
- * - Modo live: subscreve o Supabase Realtime (snapshots normalizados pela
- *   Edge Function scan-odds). Se Supabase não estiver configurado, cai no mock.
+ *  - 'live'        → Supabase Realtime: value bets já calculadas no servidor.
+ *  - 'theoddsapi'  → polling client-side do The Odds API; o motor corre no
+ *                    browser sobre os snapshots (ideal para uso pessoal grátis).
+ *  - 'mock'        → gerador local (default, sem chaves).
  *
- * Em ambos os casos cada lote de snapshots é passado a `ingestSnapshots`, que
- * corre o motor e atualiza o feed incrementalmente.
+ * Em qualquer caminho com motor no cliente, cada lote de snapshots passa por
+ * `ingestSnapshots`, que corre o motor e atualiza o feed incrementalmente.
  */
 import { useEffect } from 'react';
 import { MockOddsProvider } from '../data/mockProvider';
+import { TheOddsApiProvider } from '../data/theOddsApiProvider';
 import { useStore } from '../state/store';
-import { isLiveMode } from '../lib/env';
+import { getDataMode, env } from '../lib/env';
 import { subscribeLiveValueBets } from '../data/liveProvider';
 
 export function useOddsFeed() {
@@ -21,13 +23,20 @@ export function useOddsFeed() {
 
   useEffect(() => {
     let cleanup = () => {};
+    const mode = getDataMode();
 
-    if (isLiveMode()) {
-      // Produção: as value bets vêm já calculadas pela Edge Function via Realtime.
-      setConnection(true, 'OddsPapi (live)');
+    if (mode === 'live') {
+      setConnection(true, 'Supabase Realtime');
       cleanup = subscribeLiveValueBets((bets) => setLiveValueBets(bets));
+    } else if (mode === 'theoddsapi') {
+      const provider = new TheOddsApiProvider({
+        apiKey: env.theOddsApiKey!,
+        onQuota: (remaining) =>
+          setConnection(true, `The Odds API${remaining != null ? ` · ${remaining} créditos` : ''}`),
+      });
+      setConnection(true, provider.name);
+      cleanup = provider.subscribe((snaps) => ingest(snaps));
     } else {
-      // Demo: motor a correr no cliente sobre snapshots simulados.
       const provider = new MockOddsProvider(4000);
       setConnection(true, provider.name);
       cleanup = provider.subscribe((snaps) => ingest(snaps));

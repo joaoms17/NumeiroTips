@@ -21,10 +21,38 @@ Notas:
 
 ---
 
-## B) Live — dados reais OddsPapi
+## B) Live GRÁTIS sem backend — The Odds API (o mais simples)
 
-Pré-requisitos: conta **OddsPapi** (B2B/paga; WebSocket é tier Pro — o REST
-polling chega para pré-jogo) e um projeto **Supabase**.
+Dados reais das 4 casas (Pinnacle, Betfair, Betclic, 1xBet) **sem Supabase nem
+servidor**: a app corre o motor no browser com a tua chave grátis. Ideal para
+uso pessoal.
+
+1. Cria conta grátis em **the-odds-api.com/signup** → copia a API key (500
+   créditos/mês).
+2. Na Vercel, define as env vars do projeto:
+   ```
+   VITE_DATA_MODE=theoddsapi
+   VITE_THE_ODDS_API_KEY=<a-tua-chave>
+   ```
+3. **Deploy.** O feed passa a mostrar value bets reais.
+
+⚠️ **Quota.** Cada chamada custa `nº_mercados × nº_regiões` créditos. Com
+`regions=eu` e `markets=h2h,totals` são ~2 créditos por liga por ciclo. O
+provider faz polling a 30s e mostra os créditos restantes na barra de estado.
+Para o demo, reduz as ligas (edita `DEFAULT_LEAGUES` em
+`src/data/theOddsApiProvider.ts`) ou aumenta o intervalo. Não dá para tempo-real
+de segundos no grátis — para isso, upgrade do The Odds API ou OddsPapi (cenário C).
+
+> Nota: a chave fica visível no bundle do browser. Para uso pessoal tudo bem;
+> para partilhares publicamente, usa o cenário C (chave no servidor).
+
+---
+
+## C) Live com backend — Supabase + OddsPapi (ou The Odds API server-side)
+
+Usa o backend quando quiseres a chave escondida (partilha pública), alertas de
+Telegram server-side, ou a OddsPapi paga. A fonte do servidor escolhe-se com
+`ENGINE_DATA_SOURCE` (`theoddsapi`, default grátis; ou `oddspapi`).
 
 ### 1. Supabase
 ```bash
@@ -33,11 +61,11 @@ supabase link --project-ref <ref>
 supabase db push                 # aplica supabase/migrations/0001_init.sql
 ```
 
-### 2. Segredos das Edge Functions (servidor — a chave OddsPapi fica aqui)
+### 2a. Segredos — The Odds API (grátis, recomendado)
 ```bash
 supabase secrets set \
-  ODDSPAPI_API_KEY=...           \
-  ODDSPAPI_BASE_URL=https://api.oddspapi.io/v1 \
+  ENGINE_DATA_SOURCE=theoddsapi \
+  THE_ODDS_API_KEY=... \
   SUPABASE_URL=https://<ref>.supabase.co \
   SUPABASE_SERVICE_ROLE_KEY=...  \
   ENGINE_EDGE_THRESHOLD=0.02 ENGINE_SHARP_SOURCE=pinnacle \
@@ -46,20 +74,16 @@ supabase secrets set \
 supabase functions deploy scan-odds telegram-alert
 ```
 
-### 3. ⚠️ Confirmar o mapeamento OddsPapi (passo crítico)
-O mapeamento da resposta foi construído a partir da estrutura **documentada**
-(`bookmakerOdds[casa].markets[id].outcomes`), mas os **nomes exatos** de alguns
-campos dependem do teu plano. Antes de confiar nas value bets:
-
-1. Faz uma chamada real, ex.: `GET /odds?fixtureId=<um_id>` com a tua chave.
-2. Compara com o esperado em `src/data/oddsPapiNormalize.ts` (e o espelho Deno
-   `supabase/functions/_shared/oddspapi.ts`).
-3. Ajusta **só** três sítios se algo diferir:
-   - `BOOKMAKER_SLUGS` — os slugs reais (ex.: `pinnacle`, `betfair_ex`, ...).
-   - `mapMarket` — os ids/nomes de mercado (1X2, totals, btts).
-   - `readOutcome` — o campo do preço (`price`/`odds`/`value`) e da seleção.
-4. Atualiza o `sample` em `tests/oddspapi.test.ts` com a resposta real e corre
-   `npm test` — passa a validar contra dados verdadeiros.
+### 2b. (alternativa) Segredos — OddsPapi (pago)
+```bash
+supabase secrets set ENGINE_DATA_SOURCE=oddspapi ODDSPAPI_API_KEY=... \
+  SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=...
+```
+⚠️ O mapeamento OddsPapi foi construído da estrutura **documentada**
+(`bookmakerOdds[casa].markets[id].outcomes`) mas os nomes exatos dependem do
+plano — confirma com um `/odds?fixtureId=` real e ajusta, se preciso, só
+`BOOKMAKER_SLUGS`/`mapMarket`/`readOutcome` em `_shared/oddspapi.ts`. O The Odds
+API tem schema público estável e **não** precisa desta verificação.
 
 > Os 5 testes de normalização já validam a travessia da estrutura; só os nomes
 > dos campos é que precisam de confirmação com um exemplo real.
