@@ -10,8 +10,11 @@
  *
  * ⚠️ QUOTA (tier grátis = 500 créditos/mês): cada chamada custa
  * `nº_mercados × nº_regiões` créditos. Com `regions=eu` e `markets=h2h,totals`
- * são 2 créditos por liga por ciclo. Sê frugal: poucas ligas e polling lento
- * (default 30s) para o demo grátis. O header `x-requests-remaining` da resposta
+ * são 2 créditos por liga por ciclo → o grátis dá para ~250 ciclos no MÊS TODO.
+ * Isto NÃO é compatível com refresh contínuo: trata-o como "ver de vez em
+ * quando", não "deixar a correr". Por isso o default é polling lento (10 min) e
+ * UMA liga, e há um travão de segurança (`minCredits`) que pára o polling
+ * quando os créditos estão a acabar. O header `x-requests-remaining` da resposta
  * diz quanto resta — expomo-lo no callback `onQuota`.
  *
  * USO CLIENT-SIDE: para uma app PESSOAL podes correr isto no browser com a tua
@@ -34,19 +37,27 @@ export interface TheOddsApiConfig {
   bookmakers?: string;
   /** Ligas (sport keys) a varrer. */
   sportKeys?: string[];
-  /** Intervalo de polling em ms (default 30000 — respeita a quota grátis). */
+  /** Intervalo de polling em ms (default 600000 = 10 min — protege a quota). */
   pollMs?: number;
+  /** Travão: pára o polling quando os créditos restantes caem até aqui (default 10). */
+  minCredits?: number;
   /** Callback opcional com os créditos restantes (header da resposta). */
   onQuota?: (remaining: number | null, used: number | null) => void;
 }
 
+/**
+ * Ligas a varrer por defeito.
+ *
+ * ⚠️ Em época (ago–mai) usa as ligas domésticas. Em junho/julho de 2026 essas
+ * estão paradas e o que está a decorrer é o MUNDIAL — por isso o default agora
+ * é só o Mundial (1 liga = menos créditos). Troca via env/props quando a época
+ * recomeçar.
+ */
 const DEFAULT_LEAGUES = [
-  'soccer_epl',
-  'soccer_spain_la_liga',
-  'soccer_italy_serie_a',
-  'soccer_france_ligue_one',
-  'soccer_germany_bundesliga',
-  'soccer_portugal_primeira_liga',
+  'soccer_fifa_world_cup', // ativo jun–jul 2026
+  // época doméstica (descomenta quando recomeçar, ~agosto):
+  // 'soccer_epl', 'soccer_spain_la_liga', 'soccer_italy_serie_a',
+  // 'soccer_france_ligue_one', 'soccer_germany_bundesliga', 'soccer_portugal_primeira_liga',
 ];
 
 export class TheOddsApiProvider implements OddsProvider {
@@ -61,7 +72,7 @@ export class TheOddsApiProvider implements OddsProvider {
       this.pollOnce(listener).catch((e) => console.error('[the-odds-api] poll falhou', e));
     };
     tick();
-    this.timer = setInterval(tick, this.config.pollMs ?? 30000);
+    this.timer = setInterval(tick, this.config.pollMs ?? 600000);
     return () => {
       this.stopped = true;
       if (this.timer) clearInterval(this.timer);
@@ -93,6 +104,13 @@ export class TheOddsApiProvider implements OddsProvider {
         const remaining = num(res.headers.get('x-requests-remaining'));
         const used = num(res.headers.get('x-requests-used'));
         this.config.onQuota?.(remaining, used);
+        // travão de segurança: pára o auto-refresh antes de esgotar a quota
+        if (remaining != null && remaining <= (this.config.minCredits ?? 10)) {
+          console.warn(`[the-odds-api] créditos quase esgotados (${remaining}) → pára o polling`);
+          if (this.timer) clearInterval(this.timer);
+          this.timer = null;
+          this.stopped = true;
+        }
         if (!res.ok) {
           console.warn(`[the-odds-api] ${sk} HTTP ${res.status}`);
           continue;
