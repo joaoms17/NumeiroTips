@@ -104,20 +104,21 @@ api/scan.ts        Vercel Cron → aciona scan-odds (rede de segurança)
 
 ## Ligar a dados reais (produção)
 
+Guia completo passo-a-passo: **[`DEPLOY.md`](DEPLOY.md)**. Em resumo:
+
 1. **Supabase:** cria o projeto, aplica `supabase/migrations/0001_init.sql`.
-2. **Segredos** (server-side, nunca no frontend):
-   ```bash
-   supabase secrets set ODDSPAPI_API_KEY=... \
-     SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
-     TELEGRAM_BOT_TOKEN=... TELEGRAM_CHAT_ID=...
-   supabase functions deploy scan-odds telegram-alert
-   ```
-3. Implementa o mapeamento real da OddsPapi em `normalize()`
-   ([`scan-odds/index.ts`](supabase/functions/scan-odds/index.ts) e
-   [`oddsPapiProvider.ts`](src/data/oddsPapiProvider.ts)). É o **único** sítio a
-   mudar — o motor a jusante não muda.
+2. **Segredos** (server-side, nunca no frontend) + `supabase functions deploy
+   scan-odds telegram-alert`.
+3. **Mapeamento OddsPapi:** já implementado a partir da estrutura **documentada**
+   (`bookmakerOdds[casa].markets[id].outcomes`) em
+   [`oddsPapiNormalize.ts`](src/data/oddsPapiNormalize.ts) (espelho Deno em
+   `supabase/functions/_shared/oddspapi.ts`), com 5 testes a validar a travessia.
+   ⚠️ Os **nomes exatos** de alguns campos dependem do teu plano — confirma com
+   um exemplo real de `/odds?fixtureId=` e ajusta, se preciso, só
+   `BOOKMAKER_SLUGS` / `mapMarket` / `readOutcome`.
 4. **Frontend:** define `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` e
-   `VITE_DATA_MODE=live` (ver `.env.example`).
+   `VITE_DATA_MODE=live` (ver `.env.example`). O feed passa a vir de `value_bets`
+   via Supabase Realtime (a chave OddsPapi nunca toca no browser).
 
 ### Tempo real (frescura)
 

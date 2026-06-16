@@ -89,6 +89,9 @@ create table if not exists value_bets (
                 check (estado in ('ativo', 'expirado')),
   -- snapshot por casa-alvo (Betclic/1xBet) para line shopping na UI
   books       jsonb not null default '[]'::jsonb,
+  -- dados de apresentação do evento/seleção (evita joins no Realtime):
+  -- { league, home, away, startsAt, market, line, selection_label, fair_method, sharp_source }
+  meta        jsonb not null default '{}'::jsonb,
   detetado_em timestamptz not null default now(),
   criado_em   timestamptz not null default now(),
   atualizado_em timestamptz not null default now()

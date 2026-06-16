@@ -12,19 +12,22 @@ import { useEffect } from 'react';
 import { MockOddsProvider } from '../data/mockProvider';
 import { useStore } from '../state/store';
 import { isLiveMode } from '../lib/env';
-import { subscribeLive } from '../data/liveProvider';
+import { subscribeLiveValueBets } from '../data/liveProvider';
 
 export function useOddsFeed() {
   const ingest = useStore((s) => s.ingestSnapshots);
+  const setLiveValueBets = useStore((s) => s.setLiveValueBets);
   const setConnection = useStore((s) => s.setConnection);
 
   useEffect(() => {
     let cleanup = () => {};
 
     if (isLiveMode()) {
+      // Produção: as value bets vêm já calculadas pela Edge Function via Realtime.
       setConnection(true, 'OddsPapi (live)');
-      cleanup = subscribeLive((snaps) => ingest(snaps));
+      cleanup = subscribeLiveValueBets((bets) => setLiveValueBets(bets));
     } else {
+      // Demo: motor a correr no cliente sobre snapshots simulados.
       const provider = new MockOddsProvider(4000);
       setConnection(true, provider.name);
       cleanup = provider.subscribe((snaps) => ingest(snaps));
@@ -34,5 +37,5 @@ export function useOddsFeed() {
       cleanup();
       setConnection(false, '—');
     };
-  }, [ingest, setConnection]);
+  }, [ingest, setLiveValueBets, setConnection]);
 }

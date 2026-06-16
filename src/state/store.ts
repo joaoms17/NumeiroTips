@@ -65,6 +65,8 @@ export interface AppState {
 
   // ações
   ingestSnapshots: (snaps: MarketSnapshot[]) => void;
+  /** Caminho live: value bets já calculadas no servidor (sem motor cliente). */
+  setLiveValueBets: (bets: ValueBet[]) => void;
   setConfig: (patch: Partial<EngineConfig>) => void;
   setFilters: (patch: Partial<FeedFilters>) => void;
   setConnection: (connected: boolean, sourceName: string) => void;
@@ -89,6 +91,11 @@ export const useStore = create<AppState>((set, get) => ({
     const feed = evaluateFeed(snaps, config, prevIndex);
     const nextIndex = new Map(feed.map((vb) => [vb.id, vb]));
     set({ valueBets: feed, prevIndex: nextIndex, lastTickAt: Date.now() });
+  },
+
+  setLiveValueBets: (bets) => {
+    const nextIndex = new Map(bets.map((vb) => [vb.id, vb]));
+    set({ valueBets: bets, prevIndex: nextIndex, lastTickAt: Date.now() });
   },
 
   setConfig: (patch) => {

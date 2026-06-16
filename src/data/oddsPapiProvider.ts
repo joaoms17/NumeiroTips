@@ -2,34 +2,43 @@
  * Cliente OddsPapi (produção).
  * ===========================
  *
- * A OddsPapi expõe Betclic, 1xBet, Pinnacle e Betfair numa API normalizada com
- * streaming. Estratégia de frescura:
- *   - WebSocket quando disponível (push imediato das alterações de odds);
- *   - fallback para polling curto (4s pré-jogo) se o WS falhar.
+ * A OddsPapi expõe Betclic, 1xBet, Pinnacle e Betfair numa API normalizada.
+ * Estratégia de frescura:
+ *   - WebSocket (tier Pro): push sub-segundo das alterações de odds;
+ *   - fallback REST: fetch de fixtures + odds por fixture, em polling curto.
  *
- * IMPORTANTE: a chave de API NUNCA deve estar no frontend. Em produção esta
+ * IMPORTANTE: a chave de API NUNCA deve estar no frontend. Em produção a
  * subscrição passa por uma Edge Function/Proxy do Supabase que detém a chave;
- * o frontend recebe os snapshots já normalizados via Supabase Realtime
- * (ver supabase/functions/scan-odds e useValueBets `live`). Esta classe está
- * aqui para o caso de uso server-side e para documentar o contrato de
- * normalização que mapeia a resposta OddsPapi → MarketSnapshot.
+ * o frontend recebe value bets via Supabase Realtime. Esta classe serve o uso
+ * server-side e documenta o contrato de fetch + normalização.
+ *
+ * O mapeamento concreto da resposta vive em `oddsPapiNormalize.ts` — é o único
+ * sítio a afinar contra um exemplo real.
  */
 import type { MarketSnapshot } from '../lib/types';
 import type { OddsProvider, SnapshotListener } from './provider';
+import {
+  normalizeFixtureOdds,
+  type OddsPapiFixture,
+  type OddsPapiOddsResponse,
+} from './oddsPapiNormalize';
 
 export interface OddsPapiConfig {
   apiKey: string;
   baseUrl: string;
   wsUrl?: string;
-  /** Ligas/desportos a subscrever. */
-  leagues?: string[];
+  /** Desporto (slug OddsPapi). */
+  sport?: string;
   pollMs?: number;
+  /** Limite de fixtures por ciclo (controla custo/latência). */
+  maxFixtures?: number;
 }
 
 export class OddsPapiProvider implements OddsProvider {
   readonly name = 'OddsPapi';
   private ws: WebSocket | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
+  private stopped = false;
 
   constructor(private config: OddsPapiConfig) {}
 
@@ -48,16 +57,21 @@ export class OddsPapiProvider implements OddsProvider {
       this.ws = new WebSocket(url);
       this.ws.onmessage = (ev) => {
         try {
-          const raw = JSON.parse(ev.data);
-          listener(normalizeOddsPapi(raw));
+          const msg = JSON.parse(ev.data) as {
+            fixture?: OddsPapiFixture;
+            odds?: OddsPapiOddsResponse;
+          };
+          if (msg.fixture && msg.odds) {
+            listener(normalizeFixtureOdds(msg.fixture, msg.odds));
+          }
         } catch (e) {
-          console.error('[oddspapi] parse falhou', e);
+          console.error('[oddspapi] parse WS falhou', e);
         }
       };
       this.ws.onerror = () => {
         console.warn('[oddspapi] WS erro → fallback polling');
         this.ws?.close();
-        this.startPolling(listener);
+        if (!this.stopped) this.startPolling(listener);
       };
     } catch (e) {
       console.warn('[oddspapi] WS indisponível → polling', e);
@@ -65,24 +79,44 @@ export class OddsPapiProvider implements OddsProvider {
     }
   }
 
-  private startPolling(listener: SnapshotListener) {
-    const poll = async () => {
+  private async fetchJson<T>(path: string): Promise<T> {
+    const res = await fetch(`${this.config.baseUrl}${path}`, {
+      headers: { Authorization: `Bearer ${this.config.apiKey}` },
+    });
+    if (!res.ok) throw new Error(`OddsPapi HTTP ${res.status} em ${path}`);
+    return (await res.json()) as T;
+  }
+
+  /** Um ciclo REST: fixtures pré-jogo → odds por fixture → normaliza → emite. */
+  private async pollOnce(listener: SnapshotListener) {
+    const sport = this.config.sport ?? 'soccer';
+    const fixturesResp = await this.fetchJson<{ fixtures?: OddsPapiFixture[] }>(
+      `/fixtures?sport=${sport}&status=prematch`,
+    );
+    const fixtures = (fixturesResp.fixtures ?? []).slice(0, this.config.maxFixtures ?? 50);
+
+    const all: MarketSnapshot[] = [];
+    for (const fx of fixtures) {
       try {
-        const res = await fetch(`${this.config.baseUrl}/odds`, {
-          headers: { Authorization: `Bearer ${this.config.apiKey}` },
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const raw = await res.json();
-        listener(normalizeOddsPapi(raw));
+        const odds = await this.fetchJson<OddsPapiOddsResponse>(`/odds?fixtureId=${fx.id}`);
+        all.push(...normalizeFixtureOdds(fx, odds));
       } catch (e) {
-        console.error('[oddspapi] poll falhou', e);
+        console.warn('[oddspapi] odds do fixture falhou', fx.id, e);
       }
+    }
+    listener(all);
+  }
+
+  private startPolling(listener: SnapshotListener) {
+    const tick = () => {
+      this.pollOnce(listener).catch((e) => console.error('[oddspapi] poll falhou', e));
     };
-    poll();
-    this.timer = setInterval(poll, this.config.pollMs ?? 4000);
+    tick();
+    this.timer = setInterval(tick, this.config.pollMs ?? 4000);
   }
 
   private close() {
+    this.stopped = true;
     if (this.ws) {
       this.ws.onmessage = null;
       this.ws.onerror = null;
@@ -94,21 +128,4 @@ export class OddsPapiProvider implements OddsProvider {
       this.timer = null;
     }
   }
-}
-
-/**
- * Mapeia a resposta da OddsPapi → MarketSnapshot[].
- *
- * O formato exato depende do plano/endpoint da OddsPapi. Implementa-se o
- * mapeamento esperando uma estrutura por evento→mercado→casa→seleção. Quando
- * tiveres a resposta real, ajusta SÓ esta função; o resto do motor não muda.
- */
-export function normalizeOddsPapi(raw: unknown): MarketSnapshot[] {
-  // Placeholder defensivo: se vier vazio/diferente, devolve [].
-  if (!raw || typeof raw !== 'object') return [];
-  const events = (raw as { events?: unknown[] }).events;
-  if (!Array.isArray(events)) return [];
-  // TODO: implementar o mapeamento concreto quando o schema OddsPapi estiver
-  // confirmado. Mantém-se o contrato de tipos para o motor a jusante.
-  return [];
 }
