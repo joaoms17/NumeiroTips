@@ -511,6 +511,91 @@ tbody tr.fresh {
   color: var(--fg-2);
 }
 
+/* ---- Feed em cartões (telemóvel) ---- */
+.feed-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.vb-card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.vb-card.fresh {
+  animation: flashIn 1.2s ease-out;
+  border-color: var(--green-dim);
+}
+.vb-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+.vb-card-event {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.vb-card-event .teams {
+  font-weight: 600;
+  font-size: 14px;
+}
+.vb-card-event .meta {
+  font-size: 11px;
+  color: var(--fg-2);
+  font-family: var(--mono);
+}
+.vb-card-edge {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 18px;
+  white-space: nowrap;
+}
+.vb-card-sel {
+  margin: 6px 0 8px;
+  color: var(--fg-1);
+  font-size: 13px;
+}
+.vb-card-odds {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.vb-odd {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+}
+.vb-odd.best {
+  border-color: var(--green-dim);
+  background: var(--green-glow);
+}
+.vb-odd .k {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--fg-2);
+  font-family: var(--mono);
+}
+.vb-odd .e {
+  font-size: 11px;
+}
+.vb-card-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
 /* ---- Grids ---- */
 .grid-2 {
   display: grid;

@@ -3,7 +3,7 @@ import { useStore } from '../state/store';
 import type { MarketType, TargetBook } from '../lib/types';
 import { marketLabel } from '../lib/format';
 
-const MARKETS: Array<MarketType | 'all'> = ['all', '1x2', 'over_under', 'btts'];
+const MARKETS: Array<MarketType | 'all'> = ['all', '1x2', 'over_under', 'ah', 'btts'];
 const BOOKS: Array<TargetBook | 'all'> = ['all', 'betclic', '1xbet'];
 
 export function Filters() {

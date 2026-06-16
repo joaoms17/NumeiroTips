@@ -31,7 +31,7 @@ export interface TheOddsApiConfig {
   baseUrl?: string;
   /** Regiões (default 'eu' — cobre Betclic/1xBet/Pinnacle/Betfair). */
   regions?: string;
-  /** Mercados (default 'h2h,totals' — os grátis; 'btts' pode ser pago). */
+  /** Mercados (default 'h2h,totals,spreads' — os grátis; 'btts' pode ser pago). */
   markets?: string;
   /** Casas a pedir (poupa créditos e ruído). */
   bookmakers?: string;
@@ -83,7 +83,7 @@ export class TheOddsApiProvider implements OddsProvider {
   private async pollOnce(listener: SnapshotListener) {
     const base = this.config.baseUrl ?? 'https://api.the-odds-api.com/v4';
     const regions = this.config.regions ?? 'eu';
-    const markets = this.config.markets ?? 'h2h,totals';
+    const markets = this.config.markets ?? 'h2h,totals,spreads';
     const bookmakers = this.config.bookmakers ?? 'pinnacle,betfair_ex_eu,betclic,onexbet';
     const leagues = this.config.sportKeys ?? DEFAULT_LEAGUES;
 

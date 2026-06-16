@@ -5,7 +5,7 @@
  */
 
 export type BookId = "pinnacle" | "betfair" | "betclic" | "1xbet";
-export type MarketType = "1x2" | "over_under" | "btts";
+export type MarketType = "1x2" | "over_under" | "btts" | "ah";
 
 export interface SnapSelection {
   id: string;

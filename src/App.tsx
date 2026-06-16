@@ -3,12 +3,10 @@ import { useOddsFeed } from './hooks/useOddsFeed';
 import { useStore, selectFilteredFeed } from './state/store';
 import { Feed } from './components/Feed';
 import { Filters } from './components/Filters';
-import { KellyCalculator } from './components/KellyCalculator';
 import { BetTracker } from './components/BetTracker';
 import { Exposure } from './components/Exposure';
 import { Settings } from './components/Settings';
 import { Arbitrage } from './components/Arbitrage';
-import { Model } from './components/Model';
 import { LiveModel } from './components/LiveModel';
 import { Dashboard } from './components/Dashboard';
 import { ago } from './lib/format';
@@ -20,9 +18,7 @@ type Tab =
   | 'feed'
   | 'painel'
   | 'arbitragem'
-  | 'modelo'
   | 'aovivo'
-  | 'kelly'
   | 'tracker'
   | 'exposicao'
   | 'definicoes';
@@ -60,7 +56,7 @@ export default function App() {
 
   // Atalhos de teclado: 1–7 troca separador, "/" foca a pesquisa do feed.
   const hotkeys = useMemo(() => {
-    const order: Tab[] = ['feed', 'painel', 'arbitragem', 'modelo', 'aovivo', 'kelly', 'tracker', 'exposicao', 'definicoes'];
+    const order: Tab[] = ['feed', 'painel', 'arbitragem', 'aovivo', 'tracker', 'exposicao', 'definicoes'];
     const map: Record<string, (e: KeyboardEvent) => void> = {
       '/': (e) => {
         setTab('feed');
@@ -93,8 +89,8 @@ export default function App() {
           </span>
         )}
         <div className="spacer" />
-        <span className="status-pill mono hide-sm" title="Atalhos: 1–9 separadores · / pesquisa">
-          ⌨ 1–9 · /
+        <span className="status-pill mono hide-sm" title="Atalhos: 1–7 separadores · / pesquisa">
+          ⌨ 1–7 · /
         </span>
         <span className="status-pill mono">{feedCount} +EV</span>
       </header>
@@ -116,14 +112,8 @@ export default function App() {
           Arbitragem
           {arbCount > 0 && <span className="badge">{arbCount}</span>}
         </button>
-        <button className={`tab ${tab === 'modelo' ? 'active' : ''}`} onClick={() => setTab('modelo')}>
-          Modelo
-        </button>
         <button className={`tab ${tab === 'aovivo' ? 'active' : ''}`} onClick={() => setTab('aovivo')}>
           Ao Vivo
-        </button>
-        <button className={`tab ${tab === 'kelly' ? 'active' : ''}`} onClick={() => setTab('kelly')}>
-          Kelly
         </button>
         <button
           className={`tab ${tab === 'tracker' ? 'active' : ''}`}
@@ -155,9 +145,7 @@ export default function App() {
         )}
         {tab === 'painel' && <Dashboard />}
         {tab === 'arbitragem' && <Arbitrage />}
-        {tab === 'modelo' && <Model />}
         {tab === 'aovivo' && <LiveModel />}
-        {tab === 'kelly' && <KellyCalculator />}
         {tab === 'tracker' && <BetTracker />}
         {tab === 'exposicao' && <Exposure />}
         {tab === 'definicoes' && <Settings />}

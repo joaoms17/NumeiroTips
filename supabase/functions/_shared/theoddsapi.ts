@@ -34,8 +34,22 @@ function mapBookmaker(key: string): BookId | null {
 function mapMarket(key: string): MarketType | null {
   if (key === "h2h" || key === "h2h_3_way") return "1x2";
   if (key === "totals") return "over_under";
+  if (key === "spreads") return "ah";
   if (key === "btts") return "btts";
   return null;
+}
+
+function handicapHomeLine(mk: TOAMarket, home: string, away: string): number | null {
+  for (const o of mk.outcomes ?? []) {
+    if (o.point == null) continue;
+    if (o.name === home) return o.point;
+    if (o.name === away) return -o.point;
+  }
+  return null;
+}
+
+function signedLine(l: number): string {
+  return l > 0 ? `+${l}` : `${l}`;
 }
 
 function slugFor(market: MarketType, out: TOAOutcome, home: string, away: string): string | null {
@@ -58,12 +72,21 @@ function slugFor(market: MarketType, out: TOAOutcome, home: string, away: string
     if (l === "no") return "no";
     return null;
   }
+  if (market === "ah") {
+    if (n === home) return "home";
+    if (n === away) return "away";
+    return null;
+  }
   return null;
 }
 
 function label(market: MarketType, slug: string, home: string, away: string, line: number | null): string {
   if (market === "1x2") return slug === "home" ? `${home} (Casa)` : slug === "draw" ? "Empate" : `${away} (Fora)`;
   if (market === "over_under") return slug === "over" ? `Mais de ${line ?? 2.5}` : `Menos de ${line ?? 2.5}`;
+  if (market === "ah") {
+    const l = line ?? 0;
+    return slug === "home" ? `${home} (${signedLine(l)})` : `${away} (${signedLine(-l)})`;
+  }
   return slug === "yes" ? "Ambas marcam: Sim" : "Ambas marcam: Não";
 }
 
@@ -78,7 +101,12 @@ export function normalizeTheOddsApiEvent(ev: TOAEvent): Snapshot[] {
     for (const mk of bm.markets ?? []) {
       const type = mapMarket(mk.key);
       if (!type) continue;
-      const line = type === "over_under" ? (mk.outcomes[0]?.point ?? 2.5) : null;
+      let line: number | null = null;
+      if (type === "over_under") line = mk.outcomes[0]?.point ?? 2.5;
+      else if (type === "ah") {
+        line = handicapHomeLine(mk, home, away);
+        if (line == null) continue;
+      }
       const key = `${type}:${line ?? ""}`;
       let snap = byMarket.get(key);
       if (!snap) {

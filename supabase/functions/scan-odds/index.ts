@@ -51,7 +51,7 @@ async function fetchTheOddsApi(): Promise<Snapshot[]> {
   }
   const base = Deno.env.get("THE_ODDS_API_BASE_URL") ?? "https://api.the-odds-api.com/v4";
   const regions = Deno.env.get("THE_ODDS_API_REGIONS") ?? "eu";
-  const markets = Deno.env.get("THE_ODDS_API_MARKETS") ?? "h2h,totals";
+  const markets = Deno.env.get("THE_ODDS_API_MARKETS") ?? "h2h,totals,spreads";
   const bookmakers = Deno.env.get("THE_ODDS_API_BOOKMAKERS") ?? "pinnacle,betfair_ex_eu,betclic,onexbet";
   const leagues = (Deno.env.get("THE_ODDS_API_SPORTS") ??
     "soccer_fifa_world_cup").split(",");

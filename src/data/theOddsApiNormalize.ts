@@ -87,11 +87,27 @@ function mapMarket(key: string): MarketType | null {
       return '1x2';
     case 'totals':
       return 'over_under';
+    case 'spreads':
+      return 'ah'; // handicap
     case 'btts':
       return 'btts';
     default:
       return null;
   }
+}
+
+/** Linha (handicap) do mercado de spreads, relativa à equipa da casa. */
+function handicapHomeLine(mk: TOAMarket, home: string, away: string): number | null {
+  for (const o of mk.outcomes ?? []) {
+    if (o.point == null) continue;
+    if (o.name === home) return o.point;
+    if (o.name === away) return -o.point;
+  }
+  return null;
+}
+
+function signedLine(l: number): string {
+  return l > 0 ? `+${l}` : `${l}`;
 }
 
 /** Mapeia um outcome para o nosso slug de seleção, por mercado. */
@@ -120,6 +136,11 @@ function selectionSlug(
     if (low === 'no') return 'no';
     return null;
   }
+  if (market === 'ah') {
+    if (n === home) return 'home';
+    if (n === away) return 'away';
+    return null;
+  }
   return null;
 }
 
@@ -141,6 +162,10 @@ function selectionLabel(
   }
   if (market === 'btts') {
     return slug === 'yes' ? 'Ambas marcam: Sim' : 'Ambas marcam: Não';
+  }
+  if (market === 'ah') {
+    const l = line ?? 0;
+    return slug === 'home' ? `${home} (${signedLine(l)})` : `${away} (${signedLine(-l)})`;
   }
   return slug;
 }
@@ -176,8 +201,13 @@ export function normalizeTheOddsApiEvent(ev: TOAEvent): MarketSnapshot[] {
     for (const mk of bm.markets ?? []) {
       const type = mapMarket(mk.key);
       if (!type) continue;
-      // a linha (over/under) vem por outcome em `point`
-      const line = type === 'over_under' ? (mk.outcomes[0]?.point ?? 2.5) : null;
+      // linha: over/under vem em `point`; handicap é relativo à casa.
+      let line: number | null = null;
+      if (type === 'over_under') line = mk.outcomes[0]?.point ?? 2.5;
+      else if (type === 'ah') {
+        line = handicapHomeLine(mk, event.home, event.away);
+        if (line == null) continue; // sem linha não dá para agrupar
+      }
       const key = `${type}:${line ?? ''}`;
       let acc = byMarket.get(key);
       if (!acc) {
