@@ -56,10 +56,16 @@ A app **corre sem backend e sem chaves de API**: usa um gerador **mock** que
 simula o streaming da OddsPapi (odds a oscilar, janelas +EV a abrir e fechar),
 exercitando o pipeline completo e a UI em tempo real.
 
+**Mobile-first / PWA:** é instalável no telemóvel (Android: "Adicionar ao ecrã
+principal"; iOS: Partilhar → "Adicionar ao ecrã principal") e abre em ecrã
+inteiro como app. O service worker mantém a shell offline, mas **nunca** cacheia
+odds (a frescura é tudo). Atalhos de teclado: **1–7** trocam de separador, **/**
+foca a pesquisa, **Esc** desfoca.
+
 ```bash
 npm install
 npm run dev     # http://localhost:5173
-npm test        # 27 testes do motor matemático
+npm test        # 59 testes (motor, normalização, arbitragem, Poisson/DC)
 npm run build   # typecheck + build de produção
 ```
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useOddsFeed } from './hooks/useOddsFeed';
 import { useStore, selectFilteredFeed } from './state/store';
 import { Feed } from './components/Feed';
@@ -11,6 +11,7 @@ import { Arbitrage } from './components/Arbitrage';
 import { Model } from './components/Model';
 import { ago } from './lib/format';
 import { useNow } from './hooks/useNow';
+import { useHotkeys } from './hooks/useHotkeys';
 import { getDataMode } from './lib/env';
 
 type Tab = 'feed' | 'arbitragem' | 'modelo' | 'kelly' | 'tracker' | 'exposicao' | 'definicoes';
@@ -46,6 +47,24 @@ export default function App() {
   const pendingCount = useStore((s) => s.bets.filter((b) => b.result === 'pending').length);
   const now = useNow(1000);
 
+  // Atalhos de teclado: 1–7 troca separador, "/" foca a pesquisa do feed.
+  const hotkeys = useMemo(() => {
+    const order: Tab[] = ['feed', 'arbitragem', 'modelo', 'kelly', 'tracker', 'exposicao', 'definicoes'];
+    const map: Record<string, (e: KeyboardEvent) => void> = {
+      '/': (e) => {
+        setTab('feed');
+        // espera o feed montar e foca a pesquisa
+        setTimeout(() => document.getElementById('f-search')?.focus(), 0);
+        e.preventDefault();
+      },
+    };
+    order.forEach((t, i) => {
+      map[String(i + 1)] = () => setTab(t);
+    });
+    return map;
+  }, []);
+  useHotkeys(hotkeys);
+
   return (
     <div className="app">
       <header className="topbar">
@@ -63,6 +82,9 @@ export default function App() {
           </span>
         )}
         <div className="spacer" />
+        <span className="status-pill mono hide-sm" title="Atalhos: 1–7 separadores · / pesquisa">
+          ⌨ 1–7 · /
+        </span>
         <span className="status-pill mono">{feedCount} +EV</span>
       </header>
 

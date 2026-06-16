@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0a0e14"/>
+  <rect x="40" y="40" width="432" height="432" rx="88" fill="none" stroke="#161d29" stroke-width="6"/>
+  <!-- linha tipo "value chart" dentro da zona segura (maskable) -->
+  <path d="M104 360 L184 200 L264 300 L344 120 L408 360"
+        fill="none" stroke="#2ee6a6" stroke-width="34"
+        stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="344" cy="120" r="34" fill="#2ee6a6"/>
+</svg>
