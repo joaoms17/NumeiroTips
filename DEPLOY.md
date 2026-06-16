@@ -14,9 +14,10 @@ A app corre com odds simuladas, sem backend nem chaves. Mostra o produto inteiro
 4. **Deploy.** Partilha o URL.
 
 Notas:
-- O `vercel.json` tem um cron `/api/scan`. No plano grátis (Hobby) corre no
-  máximo 1x/dia e, sem Supabase, não faz nada — é inofensivo. Se quiseres,
-  apaga a secção `"crons"` do `vercel.json` para o demo.
+- O `vercel.json` **não** tem cron (o plano grátis Hobby só permite crons
+  diários e rejeitava o deploy). Para o caminho com backend (cenário C), agenda
+  o `scan-odds` no **Supabase** (scheduled functions / pg_cron) — é o sítio
+  correto para isso — ou usa o Vercel Cron num plano Pro.
 - Os amigos veem **dados simulados**, não odds reais.
 
 ---
