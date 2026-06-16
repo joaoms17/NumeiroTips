@@ -12,6 +12,13 @@
  */
 import { create } from 'zustand';
 import { evaluateFeed } from '../engine/engine';
+import { scanArbitrage, type ArbOpportunity } from '../engine/arbitrage';
+import {
+  recordSample,
+  computeMovement,
+  pruneHistory,
+  type MovementInfo,
+} from './movement';
 import type {
   ValueBet,
   EngineConfig,
@@ -58,6 +65,10 @@ export interface AppState {
   valueBets: ValueBet[];
   /** Index para preservar detectedAt entre ciclos. */
   prevIndex: Map<string, ValueBet>;
+  /** Oportunidades de arbitragem (Fase 3), ordenadas por margem desc. */
+  arbs: ArbOpportunity[];
+  /** Movimento de linha por seleção (sinal de steam). */
+  movement: Record<string, MovementInfo>;
   bets: TrackedBet[];
   connected: boolean;
   sourceName: string;
@@ -77,10 +88,12 @@ export interface AppState {
 }
 
 export const useStore = create<AppState>((set, get) => ({
-  config: persisted.config ?? DEFAULT_ENGINE_CONFIG,
-  filters: persisted.filters ?? DEFAULT_FILTERS,
+  config: { ...DEFAULT_ENGINE_CONFIG, ...persisted.config },
+  filters: { ...DEFAULT_FILTERS, ...persisted.filters },
   valueBets: [],
   prevIndex: new Map(),
+  arbs: [],
+  movement: {},
   bets: persisted.bets ?? [],
   connected: false,
   sourceName: '—',
@@ -90,12 +103,38 @@ export const useStore = create<AppState>((set, get) => ({
     const { config, prevIndex } = get();
     const feed = evaluateFeed(snaps, config, prevIndex);
     const nextIndex = new Map(feed.map((vb) => [vb.id, vb]));
-    set({ valueBets: feed, prevIndex: nextIndex, lastTickAt: Date.now() });
+
+    // Arbitragem (Fase 3): casas-alvo ativas + Betfair Exchange (backable).
+    const arbBooks = [...config.activeBooks, 'betfair' as const];
+    const arbs = scanArbitrage(snaps, arbBooks, config.arbMinMargin);
+
+    // Movimento de linha: regista amostras das value bets vivas e calcula steam.
+    const now = Date.now();
+    const movement: Record<string, MovementInfo> = {};
+    const aliveIds = new Set<string>();
+    for (const vb of feed) {
+      aliveIds.add(vb.id);
+      recordSample(vb.id, { t: now, fairProb: vb.fair.prob, bestOdd: vb.bestOdd });
+      movement[vb.id] = computeMovement(vb.id, now);
+    }
+    pruneHistory(aliveIds);
+
+    set({ valueBets: feed, prevIndex: nextIndex, arbs, movement, lastTickAt: now });
   },
 
   setLiveValueBets: (bets) => {
     const nextIndex = new Map(bets.map((vb) => [vb.id, vb]));
-    set({ valueBets: bets, prevIndex: nextIndex, lastTickAt: Date.now() });
+    // Movimento também no caminho live (a partir das value bets recebidas).
+    const now = Date.now();
+    const movement: Record<string, MovementInfo> = {};
+    const aliveIds = new Set<string>();
+    for (const vb of bets) {
+      aliveIds.add(vb.id);
+      recordSample(vb.id, { t: now, fairProb: vb.fair.prob, bestOdd: vb.bestOdd });
+      movement[vb.id] = computeMovement(vb.id, now);
+    }
+    pruneHistory(aliveIds);
+    set({ valueBets: bets, prevIndex: nextIndex, movement, lastTickAt: now });
   },
 
   setConfig: (patch) => {

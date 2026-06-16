@@ -8,12 +8,14 @@ import { useStore, selectFilteredFeed } from '../state/store';
 import { useNow } from '../hooks/useNow';
 import { BOOK_META } from '../lib/types';
 import type { ValueBet, TargetBook } from '../lib/types';
+import type { MovementInfo } from '../state/movement';
 import { ago, eur, marketLabel, odd, prob, shortTime, signedPct } from '../lib/format';
 
 const TARGETS: TargetBook[] = ['betclic', '1xbet'];
 
 export function Feed() {
   const feed = useStore(selectFilteredFeed);
+  const movement = useStore((s) => s.movement);
   const placeBet = useStore((s) => s.placeBet);
   const now = useNow(1000);
 
@@ -45,13 +47,20 @@ export function Feed() {
             <th>Melhor</th>
             <th>Edge</th>
             <th className="hide-sm">Kelly</th>
+            <th className="hide-sm">Mov</th>
             <th className="hide-sm">Detetado</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {feed.map((vb) => (
-            <FeedRow key={vb.id} vb={vb} now={now} onPlace={() => placeBet(vb)} />
+            <FeedRow
+              key={vb.id}
+              vb={vb}
+              mov={movement[vb.id]}
+              now={now}
+              onPlace={() => placeBet(vb)}
+            />
           ))}
         </tbody>
       </table>
@@ -59,7 +68,17 @@ export function Feed() {
   );
 }
 
-function FeedRow({ vb, now, onPlace }: { vb: ValueBet; now: number; onPlace: () => void }) {
+function FeedRow({
+  vb,
+  mov,
+  now,
+  onPlace,
+}: {
+  vb: ValueBet;
+  mov?: MovementInfo;
+  now: number;
+  onPlace: () => void;
+}) {
   const ageSec = Math.floor((now - new Date(vb.detectedAt).getTime()) / 1000);
   const fresh = ageSec < 6;
   const bookEdge = (book: TargetBook) => vb.books.find((b) => b.book === book);
@@ -115,6 +134,9 @@ function FeedRow({ vb, now, onPlace }: { vb: ValueBet; now: number; onPlace: () 
       <td className="edge-cell pos">{signedPct(vb.bestEdge)}</td>
       <td className="hide-sm">{eur(vb.stake)}</td>
       <td className="hide-sm">
+        <MovementCell mov={mov} />
+      </td>
+      <td className="hide-sm">
         <span className={`fresh-badge ${fresh ? 'hot' : ''}`}>{ago(vb.detectedAt, now)}</span>
       </td>
       <td>
@@ -134,5 +156,17 @@ function FeedRow({ vb, now, onPlace }: { vb: ValueBet; now: number; onPlace: () 
         </div>
       </td>
     </tr>
+  );
+}
+
+function MovementCell({ mov }: { mov?: MovementInfo }) {
+  if (!mov || mov.dir === 'flat') return <span className="dim">—</span>;
+  const arrow = mov.dir === 'up' ? '▲' : '▼';
+  const cls = mov.dir === 'up' ? 'pos' : 'neg';
+  return (
+    <span className={cls} title={`prob. justa ${signedPct(mov.deltaProb)} na última janela`}>
+      {mov.steam && <span title="steam: sharp move antes da casa reagir">⚡</span>} {arrow}{' '}
+      {signedPct(mov.deltaProb)}
+    </span>
   );
 }

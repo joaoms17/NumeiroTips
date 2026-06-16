@@ -56,10 +56,16 @@ A app **corre sem backend e sem chaves de API**: usa um gerador **mock** que
 simula o streaming da OddsPapi (odds a oscilar, janelas +EV a abrir e fechar),
 exercitando o pipeline completo e a UI em tempo real.
 
+**Mobile-first / PWA:** é instalável no telemóvel (Android: "Adicionar ao ecrã
+principal"; iOS: Partilhar → "Adicionar ao ecrã principal") e abre em ecrã
+inteiro como app. O service worker mantém a shell offline, mas **nunca** cacheia
+odds (a frescura é tudo). Atalhos de teclado: **1–7** trocam de separador, **/**
+foca a pesquisa, **Esc** desfoca.
+
 ```bash
 npm install
 npm run dev     # http://localhost:5173
-npm test        # 27 testes do motor matemático
+npm test        # 59 testes (motor, normalização, arbitragem, Poisson/DC)
 npm run build   # typecheck + build de produção
 ```
 
@@ -97,10 +103,16 @@ api/scan.ts        Vercel Cron → aciona scan-odds (rede de segurança)
 - CLV tracking: ao liquidar, introduz a odd justa de fecho → calcula o CLV.
 - Deep-links de 1 clique para o boletim (Betclic / 1xBet).
 
-**Fase 3** (estrutura preparada)
-- Histórico de movimento de linha (`odds_snapshots` já guarda tudo).
-- Scanner de arbitragem Betclic ⇄ 1xBet ⇄ Betfair.
-- Modelo Poisson/Dixon-Coles para cantos/cartões.
+**Fase 3** ✅
+- Histórico de movimento de linha com sinal antecipado **"steam"**: coluna *Mov*
+  no feed mostra ▲/▼ da prob. justa e ⚡ quando a sharp se move antes de a
+  casa-alvo reagir (`src/state/movement.ts`).
+- **Scanner de arbitragem** Betclic ⇄ 1xBet ⇄ Betfair (separador *Arbitragem*):
+  cobre todos os resultados com lucro garantido e calcula os stakes
+  (`src/lib/math/arbitrage.ts`).
+- **Modelo Poisson/Dixon-Coles** (separador *Modelo*): odds justas de 1X2,
+  ambas marcam e over/under a partir dos golos esperados, e mercados de
+  contagem para cantos/cartões/remates (`src/lib/math/poisson.ts`).
 
 ## Dados reais GRÁTIS (The Odds API)
 
@@ -115,8 +127,9 @@ VITE_THE_ODDS_API_KEY=<chave grátis de the-odds-api.com/signup>
 ```
 
 O motor passa a correr no cliente sobre dados reais. ⚠️ Sê frugal com a quota
-(cada chamada custa `nº_mercados × nº_regiões` créditos; o polling é a 30s e os
-créditos restantes aparecem na barra de estado). Schema público e estável → o
+(cada chamada custa `nº_mercados × nº_regiões` créditos; o polling é a 10 min,
+há um travão que pára quando os créditos estão a esgotar, e os créditos
+restantes aparecem na barra de estado). Schema público e estável → o
 adaptador (`src/data/theOddsApiNormalize.ts`) é testado contra o formato real.
 
 ## Ligar a dados reais com backend (Supabase)

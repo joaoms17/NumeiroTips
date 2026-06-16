@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useOddsFeed } from './hooks/useOddsFeed';
 import { useStore, selectFilteredFeed } from './state/store';
 import { Feed } from './components/Feed';
@@ -7,11 +7,14 @@ import { KellyCalculator } from './components/KellyCalculator';
 import { BetTracker } from './components/BetTracker';
 import { Exposure } from './components/Exposure';
 import { Settings } from './components/Settings';
+import { Arbitrage } from './components/Arbitrage';
+import { Model } from './components/Model';
 import { ago } from './lib/format';
 import { useNow } from './hooks/useNow';
+import { useHotkeys } from './hooks/useHotkeys';
 import { getDataMode } from './lib/env';
 
-type Tab = 'feed' | 'kelly' | 'tracker' | 'exposicao' | 'definicoes';
+type Tab = 'feed' | 'arbitragem' | 'modelo' | 'kelly' | 'tracker' | 'exposicao' | 'definicoes';
 
 function DataModeBanner() {
   const mode = getDataMode();
@@ -40,8 +43,27 @@ export default function App() {
   const sourceName = useStore((s) => s.sourceName);
   const lastTickAt = useStore((s) => s.lastTickAt);
   const feedCount = useStore((s) => selectFilteredFeed(s).length);
+  const arbCount = useStore((s) => s.arbs.length);
   const pendingCount = useStore((s) => s.bets.filter((b) => b.result === 'pending').length);
   const now = useNow(1000);
+
+  // Atalhos de teclado: 1–7 troca separador, "/" foca a pesquisa do feed.
+  const hotkeys = useMemo(() => {
+    const order: Tab[] = ['feed', 'arbitragem', 'modelo', 'kelly', 'tracker', 'exposicao', 'definicoes'];
+    const map: Record<string, (e: KeyboardEvent) => void> = {
+      '/': (e) => {
+        setTab('feed');
+        // espera o feed montar e foca a pesquisa
+        setTimeout(() => document.getElementById('f-search')?.focus(), 0);
+        e.preventDefault();
+      },
+    };
+    order.forEach((t, i) => {
+      map[String(i + 1)] = () => setTab(t);
+    });
+    return map;
+  }, []);
+  useHotkeys(hotkeys);
 
   return (
     <div className="app">
@@ -60,6 +82,9 @@ export default function App() {
           </span>
         )}
         <div className="spacer" />
+        <span className="status-pill mono hide-sm" title="Atalhos: 1–7 separadores · / pesquisa">
+          ⌨ 1–7 · /
+        </span>
         <span className="status-pill mono">{feedCount} +EV</span>
       </header>
 
@@ -69,6 +94,16 @@ export default function App() {
         <button className={`tab ${tab === 'feed' ? 'active' : ''}`} onClick={() => setTab('feed')}>
           Feed
           {feedCount > 0 && <span className="badge">{feedCount}</span>}
+        </button>
+        <button
+          className={`tab ${tab === 'arbitragem' ? 'active' : ''}`}
+          onClick={() => setTab('arbitragem')}
+        >
+          Arbitragem
+          {arbCount > 0 && <span className="badge">{arbCount}</span>}
+        </button>
+        <button className={`tab ${tab === 'modelo' ? 'active' : ''}`} onClick={() => setTab('modelo')}>
+          Modelo
         </button>
         <button className={`tab ${tab === 'kelly' ? 'active' : ''}`} onClick={() => setTab('kelly')}>
           Kelly
@@ -101,6 +136,8 @@ export default function App() {
             <Feed />
           </>
         )}
+        {tab === 'arbitragem' && <Arbitrage />}
+        {tab === 'modelo' && <Model />}
         {tab === 'kelly' && <KellyCalculator />}
         {tab === 'tracker' && <BetTracker />}
         {tab === 'exposicao' && <Exposure />}
