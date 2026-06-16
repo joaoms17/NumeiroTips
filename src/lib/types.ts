@@ -23,6 +23,42 @@ export const BOOK_META: Record<TargetBook, { label: string; risk: BookRisk; colo
   '1xbet': { label: '1xBet', risk: 'cinzenta', color: '#d9a441' },
 };
 
+/**
+ * Casas onde se pode registar apostas no Tracker/Exposição (gestão de conta).
+ * Inclui as licenciadas pela SRIJ em Portugal + a 1xBet (zona cinzenta).
+ * NOTA: a deteção de value bets (feed) só funciona nas casas com odds na fonte
+ * de dados (Betclic, 1xBet); as restantes servem para registo manual e gestão
+ * de exposição por casa, já que apostas nelas é à mão.
+ */
+export type AccountBook =
+  | 'betclic'
+  | '1xbet'
+  | 'betano'
+  | 'placard'
+  | 'solverde'
+  | 'esc_online'
+  | 'bacana'
+  | 'nossa_aposta'
+  | 'moosh'
+  | 'casino_portugal'
+  | 'leovegas';
+
+export const ACCOUNT_BOOK_META: Record<AccountBook, { label: string; risk: BookRisk }> = {
+  betclic: { label: 'Betclic', risk: 'licenciada' },
+  betano: { label: 'Betano', risk: 'licenciada' },
+  placard: { label: 'Placard', risk: 'licenciada' },
+  solverde: { label: 'Solverde', risk: 'licenciada' },
+  esc_online: { label: 'ESC Online', risk: 'licenciada' },
+  bacana: { label: 'Bacana Play', risk: 'licenciada' },
+  nossa_aposta: { label: 'Nossa Aposta', risk: 'licenciada' },
+  moosh: { label: 'Moosh', risk: 'licenciada' },
+  casino_portugal: { label: 'Casino Portugal', risk: 'licenciada' },
+  leovegas: { label: 'LeoVegas', risk: 'licenciada' },
+  '1xbet': { label: '1xBet', risk: 'cinzenta' },
+};
+
+export const ACCOUNT_BOOKS = Object.keys(ACCOUNT_BOOK_META) as AccountBook[];
+
 export type MarketType =
   | '1x2'
   | 'over_under'
@@ -172,7 +208,7 @@ export interface TrackedBet {
   id: string;
   valueBetId: string;
   label: string; // descrição legível da aposta
-  book: TargetBook;
+  book: AccountBook;
   stake: number;
   odd: number;
   fairOddAtBet: number;

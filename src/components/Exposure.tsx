@@ -54,12 +54,13 @@ export function Exposure() {
               {e.atRisk && <div className="note danger">⚠ {e.reason}</div>}
               {!e.atRisk && e.risk === 'cinzenta' && (
                 <div className="note">
-                  1xBet não é licenciada pela SRIJ. Não acumules saldo: levanta com frequência.
+                  {e.label} não é licenciada pela SRIJ. Não acumules saldo: levanta com frequência.
                 </div>
               )}
               {!e.atRisk && e.risk === 'licenciada' && (
                 <div className="note ok">
-                  Betclic limita vencedores consistentes. Mantém stakes discretos e arredondados.
+                  {e.label} (licenciada SRIJ) pode limitar vencedores consistentes. Mantém stakes
+                  discretos e arredondados.
                 </div>
               )}
             </div>

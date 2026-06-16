@@ -4,8 +4,20 @@
  * pré-jogo; vê equipas semelhantes por perfil; manda o confronto para o Ao Vivo.
  */
 import { useMemo, useState } from 'react';
-import { allTeams, getProfile, matchupExpectedGoals, similarTeams, profiles } from '../lib/patterns';
-import { dixonColesMatrix, matchProbabilities, totalGoalsOverUnder } from '../lib/math/poisson';
+import {
+  allTeams,
+  getProfile,
+  matchupExpectedGoals,
+  matchupCounts,
+  similarTeams,
+  profiles,
+} from '../lib/patterns';
+import {
+  dixonColesMatrix,
+  matchProbabilities,
+  totalGoalsOverUnder,
+  countOverUnder,
+} from '../lib/math/poisson';
 import { useStore } from '../state/store';
 import { odd as fmtOdd, pct } from '../lib/format';
 
@@ -23,6 +35,19 @@ export function Patterns() {
     const sm = dixonColesMatrix(exp.lambda, exp.mu, -0.1);
     return { m: matchProbabilities(sm), ou: totalGoalsOverUnder(sm, line) };
   }, [exp, line]);
+
+  const counts = useMemo(() => matchupCounts(home, away), [home, away]);
+  const [cornerLine, setCornerLine] = useState(9.5);
+  const [shotLine, setShotLine] = useState(24.5);
+  const [scorerShare, setScorerShare] = useState(0.3);
+
+  const cornersOU = counts ? countOverUnder(counts.corners, cornerLine) : null;
+  const shotsOU = counts ? countOverUnder(counts.shots, shotLine) : null;
+  // marcador (casa): golos esperados do jogador = golos esperados da equipa × quota
+  const teamGoalsHome = exp?.lambda ?? 0;
+  const playerXg = teamGoalsHome * scorerShare;
+  const anytime = 1 - Math.exp(-playerXg);
+  const twoPlus = 1 - Math.exp(-playerXg) * (1 + playerXg);
 
   const simHome = useMemo(() => similarTeams(home, 5), [home]);
   const ph = getProfile(home);
@@ -104,6 +129,70 @@ export function Patterns() {
             )}
           </div>
         </div>
+      </div>
+
+      <div className="section-title">Mercados de nicho (modelo · sem odds da casa)</div>
+      <div className="grid-3">
+        <div className="panel">
+          <div className="panel-h">Cantos</div>
+          <div style={{ padding: 12 }}>
+            <div className="calc-row">
+              <span className="lbl">Esperados (total)</span>
+              <span className="val mono">{counts ? counts.corners.toFixed(1) : '—'}</span>
+            </div>
+            <div className="field" style={{ gap: 6, margin: '8px 0' }}>
+              <label>Linha · {cornerLine}</label>
+              <input type="number" min={0.5} step={0.5} value={cornerLine} onChange={(e) => setCornerLine(Number(e.target.value) || 0.5)} style={{ width: 90 }} />
+            </div>
+            {cornersOU && (
+              <>
+                <FairRow label={`Mais de ${cornerLine}`} p={cornersOU.over} />
+                <FairRow label={`Menos de ${cornerLine}`} p={cornersOU.under} />
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-h">Remates</div>
+          <div style={{ padding: 12 }}>
+            <div className="calc-row">
+              <span className="lbl">Esperados (total)</span>
+              <span className="val mono">{counts ? counts.shots.toFixed(1) : '—'}</span>
+            </div>
+            <div className="field" style={{ gap: 6, margin: '8px 0' }}>
+              <label>Linha · {shotLine}</label>
+              <input type="number" min={0.5} step={0.5} value={shotLine} onChange={(e) => setShotLine(Number(e.target.value) || 0.5)} style={{ width: 90 }} />
+            </div>
+            {shotsOU && (
+              <>
+                <FairRow label={`Mais de ${shotLine}`} p={shotsOU.over} />
+                <FairRow label={`Menos de ${shotLine}`} p={shotsOU.under} />
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-h">Marcador ({home})</div>
+          <div style={{ padding: 12 }}>
+            <div className="field" style={{ gap: 6, marginBottom: 8 }}>
+              <label>Quota do jogador no ataque · {pct(scorerShare, 0)}</label>
+              <input type="range" min={0.05} max={0.6} step={0.05} value={scorerShare} onChange={(e) => setScorerShare(Number(e.target.value))} />
+            </div>
+            <div className="calc-row">
+              <span className="lbl muted">Golos esperados do jogador</span>
+              <span className="val mono">{playerXg.toFixed(2)}</span>
+            </div>
+            <FairRow label="Marca a qualquer momento" p={anytime} />
+            <FairRow label="Marca 2+" p={twoPlus} />
+          </div>
+        </div>
+      </div>
+      <div className="note">
+        Contagens esperadas pelo mesmo modelo de força (taxa a favor × taxa contra ÷ média), a
+        partir de remates/xG/cantos reais do StatsBomb. São <strong>estimativas</strong> para
+        comparares com a odd da casa — não há odds destes mercados na fonte grátis.
       </div>
 
       <div className="section-title">Equipas semelhantes a {home}</div>

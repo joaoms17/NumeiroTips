@@ -26,6 +26,7 @@ import type {
   MarketSnapshot,
   TrackedBet,
   TargetBook,
+  AccountBook,
   BetResult,
 } from '../lib/types';
 import { DEFAULT_ENGINE_CONFIG, DEFAULT_FILTERS } from '../lib/types';
@@ -88,6 +89,14 @@ export interface AppState {
   placeBet: (vb: ValueBet, opts?: { stake?: number; book?: TargetBook }) => void;
   settleBet: (id: string, result: BetResult, fairClosingOdd?: number) => void;
   removeBet: (id: string) => void;
+  /** Regista uma aposta à mão (qualquer casa, ex.: Betano/Solverde). */
+  addManualBet: (b: {
+    label: string;
+    book: AccountBook;
+    stake: number;
+    odd: number;
+    fairOdd?: number;
+  }) => void;
   /** Substitui config/apostas a partir de um backup importado. */
   importState: (data: { config?: Partial<EngineConfig>; bets?: TrackedBet[] }) => void;
 }
@@ -206,6 +215,27 @@ export const useStore = create<AppState>((set, get) => ({
 
   removeBet: (id) => {
     const bets = get().bets.filter((b) => b.id !== id);
+    set({ bets });
+    save({ config: get().config, filters: get().filters, bets });
+  },
+
+  addManualBet: ({ label, book, stake, odd, fairOdd }) => {
+    const bet: TrackedBet = {
+      id: `bet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      valueBetId: 'manual',
+      label: label.trim() || 'Aposta manual',
+      book,
+      stake,
+      odd,
+      fairOddAtBet: fairOdd ?? odd,
+      edgeAtBet: fairOdd && fairOdd > 1 ? (1 / fairOdd) * odd - 1 : 0,
+      result: 'pending',
+      pnl: null,
+      clv: null,
+      placedAt: new Date().toISOString(),
+      settledAt: null,
+    };
+    const bets = [bet, ...get().bets];
     set({ bets });
     save({ config: get().config, filters: get().filters, bets });
   },

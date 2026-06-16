@@ -3,6 +3,7 @@ import {
   allTeams,
   getProfile,
   matchupExpectedGoals,
+  matchupCounts,
   similarTeams,
   profiles,
 } from '../src/lib/patterns';
@@ -57,5 +58,24 @@ describe('patterns (perfis StatsBomb)', () => {
   it('similares de equipa desconhecida → vazio', () => {
     expect(similarTeams('Nada', 5)).toEqual([]);
     expect(getProfile('Nada')).toBeUndefined();
+  });
+
+  it('contagens de confronto: remates/xG/cantos positivos e coerentes', () => {
+    expect(profiles.leagueAvgShotsPerTeam).toBeGreaterThan(5);
+    expect(profiles.leagueAvgCornersPerTeam).toBeGreaterThan(2);
+    const a = profiles.teams[0].team;
+    const b = profiles.teams[1].team;
+    const c = matchupCounts(a, b);
+    expect(c).not.toBeNull();
+    expect(c!.shots).toBeGreaterThan(0);
+    expect(c!.corners).toBeGreaterThan(0);
+    expect(c!.xg).toBeGreaterThan(0);
+    // total ≈ casa + fora (arredondamentos independentes → tolerância de 0.05)
+    expect(c!.shots).toBeCloseTo(c!.shotsHome + c!.shotsAway, 1);
+    expect(c!.corners).toBeCloseTo(c!.cornersHome + c!.cornersAway, 1);
+  });
+
+  it('confronto desconhecido → contagens null', () => {
+    expect(matchupCounts('Nada', 'Outra')).toBeNull();
   });
 });
