@@ -11,3 +11,5 @@ dist-ssr
 coverage
 .vercel
 supabase/.temp
+
+*.tsbuildinfo
