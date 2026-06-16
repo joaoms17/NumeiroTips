@@ -9,6 +9,7 @@ import { Settings } from './components/Settings';
 import { Arbitrage } from './components/Arbitrage';
 import { LiveModel } from './components/LiveModel';
 import { Patterns } from './components/Patterns';
+import { Explorer } from './components/Explorer';
 import { Dashboard } from './components/Dashboard';
 import { ago } from './lib/format';
 import { useNow } from './hooks/useNow';
@@ -18,6 +19,7 @@ import { getDataMode } from './lib/env';
 type Tab =
   | 'feed'
   | 'painel'
+  | 'explorar'
   | 'arbitragem'
   | 'padroes'
   | 'aovivo'
@@ -58,7 +60,7 @@ export default function App() {
 
   // Atalhos de teclado: 1–7 troca separador, "/" foca a pesquisa do feed.
   const hotkeys = useMemo(() => {
-    const order: Tab[] = ['feed', 'painel', 'arbitragem', 'padroes', 'aovivo', 'tracker', 'exposicao', 'definicoes'];
+    const order: Tab[] = ['feed', 'painel', 'explorar', 'arbitragem', 'padroes', 'aovivo', 'tracker', 'exposicao', 'definicoes'];
     const map: Record<string, (e: KeyboardEvent) => void> = {
       '/': (e) => {
         setTab('feed');
@@ -91,8 +93,8 @@ export default function App() {
           </span>
         )}
         <div className="spacer" />
-        <span className="status-pill mono hide-sm" title="Atalhos: 1–8 separadores · / pesquisa">
-          ⌨ 1–8 · /
+        <span className="status-pill mono hide-sm" title="Atalhos: 1–9 separadores · / pesquisa">
+          ⌨ 1–9 · /
         </span>
         <span className="status-pill mono">{feedCount} +EV</span>
       </header>
@@ -106,6 +108,9 @@ export default function App() {
         </button>
         <button className={`tab ${tab === 'painel' ? 'active' : ''}`} onClick={() => setTab('painel')}>
           Painel
+        </button>
+        <button className={`tab ${tab === 'explorar' ? 'active' : ''}`} onClick={() => setTab('explorar')}>
+          Explorar
         </button>
         <button
           className={`tab ${tab === 'arbitragem' ? 'active' : ''}`}
@@ -149,6 +154,7 @@ export default function App() {
           </>
         )}
         {tab === 'painel' && <Dashboard />}
+        {tab === 'explorar' && <Explorer />}
         {tab === 'arbitragem' && <Arbitrage />}
         {tab === 'padroes' && <Patterns />}
         {tab === 'aovivo' && <LiveModel />}
