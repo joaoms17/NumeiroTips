@@ -10,3 +10,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** Identificador do build (data/hora), injetado pelo Vite. */
+declare const __BUILD_ID__: string;

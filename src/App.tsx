@@ -15,6 +15,7 @@ import { ago } from './lib/format';
 import { useNow } from './hooks/useNow';
 import { useHotkeys } from './hooks/useHotkeys';
 import { getDataMode } from './lib/env';
+import { BUILD_ID, hardRefresh } from './pwa';
 
 type Tab =
   | 'feed'
@@ -97,6 +98,17 @@ export default function App() {
           ⌨ 1–9 · /
         </span>
         <span className="status-pill mono">{feedCount} +EV</span>
+        <span className="status-pill mono hide-sm" title={`Versão do build: ${BUILD_ID}`}>
+          v{BUILD_ID}
+        </span>
+        <button
+          className="btn ghost"
+          style={{ padding: '4px 8px' }}
+          onClick={hardRefresh}
+          title="Hard refresh: limpa cache e service worker e recarrega a última versão"
+        >
+          ⟳
+        </button>
       </header>
 
       <DataModeBanner />

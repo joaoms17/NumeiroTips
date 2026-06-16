@@ -6,6 +6,7 @@ import { useStore } from '../state/store';
 import { useAlerts, requestNotificationPermission } from '../hooks/useAlerts';
 import type { SharpBook, TargetBook } from '../lib/types';
 import { pct } from '../lib/format';
+import { BUILD_ID, hardRefresh } from '../pwa';
 
 export function Settings() {
   const config = useStore((s) => s.config);
@@ -34,6 +35,7 @@ export function Settings() {
   };
 
   return (
+    <>
     <div className="grid-2">
       <div className="panel">
         <div className="panel-h">Motor</div>
@@ -169,6 +171,21 @@ export function Settings() {
         </div>
       </div>
     </div>
+
+    <div className="panel" style={{ marginTop: 12 }}>
+      <div className="panel-h">Versão</div>
+      <div style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <span className="mono muted">build {BUILD_ID}</span>
+        <button className="btn primary" onClick={hardRefresh}>
+          ⟳ Hard refresh (última versão)
+        </button>
+        <span className="muted" style={{ fontSize: 12 }}>
+          Limpa a cache e o service worker e recarrega — usa se a app parecer desatualizada depois
+          de um deploy.
+        </span>
+      </div>
+    </div>
+    </>
   );
 }
 
