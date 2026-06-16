@@ -132,6 +132,8 @@ export interface EngineConfig {
   sharpSource: SharpBook;
   /** Casas-alvo ativas (MVP começa só com Betclic). */
   activeBooks: TargetBook[];
+  /** Margem mínima para sinalizar uma arbitragem (default 0.5%). */
+  arbMinMargin: number;
 }
 
 export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
@@ -142,6 +144,7 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   stakeCap: 0.05,
   sharpSource: 'pinnacle',
   activeBooks: ['betclic', '1xbet'],
+  arbMinMargin: 0.005,
 };
 
 /** Filtros aplicados ao feed na UI. */

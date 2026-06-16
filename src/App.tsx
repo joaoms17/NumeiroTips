@@ -7,11 +7,13 @@ import { KellyCalculator } from './components/KellyCalculator';
 import { BetTracker } from './components/BetTracker';
 import { Exposure } from './components/Exposure';
 import { Settings } from './components/Settings';
+import { Arbitrage } from './components/Arbitrage';
+import { Model } from './components/Model';
 import { ago } from './lib/format';
 import { useNow } from './hooks/useNow';
 import { getDataMode } from './lib/env';
 
-type Tab = 'feed' | 'kelly' | 'tracker' | 'exposicao' | 'definicoes';
+type Tab = 'feed' | 'arbitragem' | 'modelo' | 'kelly' | 'tracker' | 'exposicao' | 'definicoes';
 
 function DataModeBanner() {
   const mode = getDataMode();
@@ -40,6 +42,7 @@ export default function App() {
   const sourceName = useStore((s) => s.sourceName);
   const lastTickAt = useStore((s) => s.lastTickAt);
   const feedCount = useStore((s) => selectFilteredFeed(s).length);
+  const arbCount = useStore((s) => s.arbs.length);
   const pendingCount = useStore((s) => s.bets.filter((b) => b.result === 'pending').length);
   const now = useNow(1000);
 
@@ -69,6 +72,16 @@ export default function App() {
         <button className={`tab ${tab === 'feed' ? 'active' : ''}`} onClick={() => setTab('feed')}>
           Feed
           {feedCount > 0 && <span className="badge">{feedCount}</span>}
+        </button>
+        <button
+          className={`tab ${tab === 'arbitragem' ? 'active' : ''}`}
+          onClick={() => setTab('arbitragem')}
+        >
+          Arbitragem
+          {arbCount > 0 && <span className="badge">{arbCount}</span>}
+        </button>
+        <button className={`tab ${tab === 'modelo' ? 'active' : ''}`} onClick={() => setTab('modelo')}>
+          Modelo
         </button>
         <button className={`tab ${tab === 'kelly' ? 'active' : ''}`} onClick={() => setTab('kelly')}>
           Kelly
@@ -101,6 +114,8 @@ export default function App() {
             <Feed />
           </>
         )}
+        {tab === 'arbitragem' && <Arbitrage />}
+        {tab === 'modelo' && <Model />}
         {tab === 'kelly' && <KellyCalculator />}
         {tab === 'tracker' && <BetTracker />}
         {tab === 'exposicao' && <Exposure />}
