@@ -4,7 +4,7 @@
  * probabilidades para o resto do jogo: 1X2, ambas marcam, over/under e próximo
  * golo. Captura "como as equipas reagem" via parâmetros de reação ajustáveis.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   liveProbabilities,
   remainingRates,
@@ -13,11 +13,21 @@ import {
   type GameState,
 } from '../lib/math/inplay';
 import { dixonColesMatrix } from '../lib/math/poisson';
+import { useStore } from '../state/store';
 import { odd as fmtOdd, pct } from '../lib/format';
 
 export function LiveModel() {
-  const [lambda, setLambda] = useState(1.6);
-  const [mu, setMu] = useState(1.2);
+  const seed = useStore((s) => s.inplaySeed);
+  const [lambda, setLambda] = useState(seed?.lambda ?? 1.6);
+  const [mu, setMu] = useState(seed?.mu ?? 1.2);
+
+  // Quando vem um confronto dos Padrões, carrega os golos esperados.
+  useEffect(() => {
+    if (seed) {
+      setLambda(seed.lambda);
+      setMu(seed.mu);
+    }
+  }, [seed]);
   const [minute, setMinute] = useState(60);
   const [hg, setHg] = useState(1);
   const [ag, setAg] = useState(0);

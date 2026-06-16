@@ -8,6 +8,7 @@ import { Exposure } from './components/Exposure';
 import { Settings } from './components/Settings';
 import { Arbitrage } from './components/Arbitrage';
 import { LiveModel } from './components/LiveModel';
+import { Patterns } from './components/Patterns';
 import { Dashboard } from './components/Dashboard';
 import { ago } from './lib/format';
 import { useNow } from './hooks/useNow';
@@ -18,6 +19,7 @@ type Tab =
   | 'feed'
   | 'painel'
   | 'arbitragem'
+  | 'padroes'
   | 'aovivo'
   | 'tracker'
   | 'exposicao'
@@ -56,7 +58,7 @@ export default function App() {
 
   // Atalhos de teclado: 1–7 troca separador, "/" foca a pesquisa do feed.
   const hotkeys = useMemo(() => {
-    const order: Tab[] = ['feed', 'painel', 'arbitragem', 'aovivo', 'tracker', 'exposicao', 'definicoes'];
+    const order: Tab[] = ['feed', 'painel', 'arbitragem', 'padroes', 'aovivo', 'tracker', 'exposicao', 'definicoes'];
     const map: Record<string, (e: KeyboardEvent) => void> = {
       '/': (e) => {
         setTab('feed');
@@ -89,8 +91,8 @@ export default function App() {
           </span>
         )}
         <div className="spacer" />
-        <span className="status-pill mono hide-sm" title="Atalhos: 1–7 separadores · / pesquisa">
-          ⌨ 1–7 · /
+        <span className="status-pill mono hide-sm" title="Atalhos: 1–8 separadores · / pesquisa">
+          ⌨ 1–8 · /
         </span>
         <span className="status-pill mono">{feedCount} +EV</span>
       </header>
@@ -111,6 +113,9 @@ export default function App() {
         >
           Arbitragem
           {arbCount > 0 && <span className="badge">{arbCount}</span>}
+        </button>
+        <button className={`tab ${tab === 'padroes' ? 'active' : ''}`} onClick={() => setTab('padroes')}>
+          Padrões
         </button>
         <button className={`tab ${tab === 'aovivo' ? 'active' : ''}`} onClick={() => setTab('aovivo')}>
           Ao Vivo
@@ -145,6 +150,7 @@ export default function App() {
         )}
         {tab === 'painel' && <Dashboard />}
         {tab === 'arbitragem' && <Arbitrage />}
+        {tab === 'padroes' && <Patterns />}
         {tab === 'aovivo' && <LiveModel />}
         {tab === 'tracker' && <BetTracker />}
         {tab === 'exposicao' && <Exposure />}
