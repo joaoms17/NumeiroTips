@@ -1,0 +1,7 @@
+project_id = "numeirotips"
+
+[functions.scan-odds]
+verify_jwt = false
+
+[functions.telegram-alert]
+verify_jwt = false
