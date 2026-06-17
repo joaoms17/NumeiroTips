@@ -82,14 +82,14 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <span className="logo">▲ NumeiroTips</span>
-          <span className="tag">+EV terminal</span>
+          <span className="tag hide-sm">+EV terminal</span>
         </div>
-        <span className={`status-pill`}>
+        <span className="status-pill source-pill" title={connected ? sourceName : 'desligado'}>
           <span className={`dot ${connected ? 'live' : ''}`} />
-          {connected ? sourceName : 'desligado'}
+          <span className="source-name">{connected ? sourceName : 'desligado'}</span>
         </span>
         {lastTickAt > 0 && (
-          <span className="status-pill mono" title="Última atualização de odds">
+          <span className="status-pill mono hide-sm" title="Última atualização de odds">
             tick {ago(new Date(lastTickAt).toISOString(), now)}
           </span>
         )}
@@ -97,13 +97,12 @@ export default function App() {
         <span className="status-pill mono hide-sm" title="Atalhos: 1–9 separadores · / pesquisa">
           ⌨ 1–9 · /
         </span>
-        <span className="status-pill mono">{feedCount} +EV</span>
+        <span className="status-pill mono hide-sm">{feedCount} +EV</span>
         <span className="status-pill mono hide-sm" title={`Versão do build: ${BUILD_ID}`}>
           v{BUILD_ID}
         </span>
         <button
-          className="btn ghost"
-          style={{ padding: '4px 8px' }}
+          className="btn ghost refresh-btn"
           onClick={hardRefresh}
           title="Hard refresh: limpa cache e service worker e recarrega a última versão"
         >

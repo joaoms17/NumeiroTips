@@ -18,6 +18,7 @@ import {
   totalGoalsOverUnder,
   countOverUnder,
 } from '../lib/math/poisson';
+import { teamTrends, type TeamTrends } from '../lib/trends';
 import { useStore } from '../state/store';
 import { odd as fmtOdd, pct } from '../lib/format';
 
@@ -50,6 +51,8 @@ export function Patterns() {
   const twoPlus = 1 - Math.exp(-playerXg) * (1 + playerXg);
 
   const simHome = useMemo(() => similarTeams(home, 5), [home]);
+  const trendsHome = useMemo(() => teamTrends(home), [home]);
+  const trendsAway = useMemo(() => teamTrends(away), [away]);
   const ph = getProfile(home);
   const pa = getProfile(away);
 
@@ -129,6 +132,12 @@ export function Patterns() {
             )}
           </div>
         </div>
+      </div>
+
+      <div className="section-title">Tendências históricas (forma + mercados)</div>
+      <div className="grid-2">
+        <TrendsCard t={trendsHome} />
+        <TrendsCard t={trendsAway} />
       </div>
 
       <div className="section-title">Mercados de nicho (modelo · sem odds da casa)</div>
@@ -259,6 +268,47 @@ function FairRow({ label, p }: { label: string; p: number }) {
         <span className="muted" style={{ marginRight: 10 }}>{pct(p, 1)}</span>
         <span className="pos">{p > 0.0001 ? fmtOdd(1 / p) : '—'}</span>
       </span>
+    </div>
+  );
+}
+
+function TrendsCard({ t }: { t: TeamTrends | null }) {
+  if (!t) {
+    return (
+      <div className="panel">
+        <div className="panel-h">Tendências</div>
+        <div style={{ padding: 14 }} className="muted">Sem histórico para esta equipa.</div>
+      </div>
+    );
+  }
+  return (
+    <div className="panel">
+      <div className="panel-h" style={{ justifyContent: 'space-between' }}>
+        <span>{t.team}</span>
+        <span style={{ display: 'flex', gap: 3 }}>
+          {t.form.map((r, i) => (
+            <span key={i} className={`form-dot ${r === 'W' ? 'pos' : r === 'L' ? 'neg' : 'neu'}`}>{r}</span>
+          ))}
+        </span>
+      </div>
+      <div style={{ padding: 12 }}>
+        <TrendRow k="Jogos" v={String(t.played)} />
+        <TrendRow k="Média golos (marca/sofre)" v={`${t.gfAvg} / ${t.gaAvg}`} />
+        <TrendRow k="Over 2.5" v={pct(t.over25, 0)} hi={t.over25 >= 0.5} />
+        <TrendRow k="Ambas marcam" v={pct(t.bttsPct, 0)} hi={t.bttsPct >= 0.5} />
+        <TrendRow k="Clean sheet" v={pct(t.cleanSheetPct, 0)} />
+        <TrendRow k="Cantos (própria / total)" v={`${t.cornersForAvg} / ${t.cornersTotalAvg}`} />
+        <TrendRow k="Cartões (própria / total)" v={`${t.cardsForAvg} / ${t.cardsTotalAvg}`} />
+      </div>
+    </div>
+  );
+}
+
+function TrendRow({ k, v, hi }: { k: string; v: string; hi?: boolean }) {
+  return (
+    <div className="calc-row">
+      <span className="lbl">{k}</span>
+      <span className={`val mono ${hi ? 'pos' : ''}`}>{v}</span>
     </div>
   );
 }

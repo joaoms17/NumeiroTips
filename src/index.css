@@ -127,7 +127,8 @@ button {
   z-index: 30;
   display: flex;
   align-items: center;
-  gap: 14px;
+  flex-wrap: nowrap;
+  gap: 10px;
   /* respeita a safe area do iOS (notch / Dynamic Island / status bar) */
   padding: 10px 16px;
   padding-top: max(10px, env(safe-area-inset-top));
@@ -167,6 +168,21 @@ button {
   border: 1px solid var(--border-strong);
   color: var(--fg-1);
   background: var(--bg-3);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+/* pill da fonte: nunca transborda, corta com elipse */
+.source-pill .source-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+.refresh-btn {
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  font-size: 15px;
+  line-height: 1;
 }
 .dot {
   width: 7px;
@@ -744,6 +760,33 @@ tbody tr.fresh {
   background: #03130d;
 }
 
+/* ---- estado: forma recente (W/D/L) ---- */
+.form-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--mono);
+  background: var(--bg-3);
+  border: 1px solid var(--border-strong);
+}
+.form-dot.pos {
+  color: #03130d;
+  background: var(--green);
+}
+.form-dot.neg {
+  color: #fff;
+  background: var(--red-dim);
+}
+.form-dot.neu {
+  color: var(--bg-0);
+  background: var(--amber);
+}
+
 /* ---- responsivo / mobile-first ---- */
 @media (max-width: 760px) {
   .grid-2,
@@ -759,6 +802,21 @@ tbody tr.fresh {
   }
   .hide-sm {
     display: none;
+  }
+  /* topbar compacta: marca menor, fonte com elipse, sem transbordo */
+  .topbar {
+    gap: 8px;
+    padding: 8px 12px;
+    padding-top: max(8px, env(safe-area-inset-top));
+  }
+  .brand .logo {
+    font-size: 13px;
+  }
+  .source-pill {
+    min-width: 0;
+  }
+  .source-pill .source-name {
+    max-width: 130px;
   }
 }
 

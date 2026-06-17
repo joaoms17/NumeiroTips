@@ -11,6 +11,8 @@ export interface TeamMatchStat {
   corners: number;
   passes: number;
   goals: number;
+  yellow: number;
+  red: number;
   poss: number; // % posse (proxy = quota de passes)
   b: {
     shots: number[]; // 6 blocos de 15 min

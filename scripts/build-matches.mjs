@@ -30,9 +30,13 @@ async function fetchJson(url) {
 function emptyTeam(name) {
   return {
     name,
-    shots: 0, xg: 0, corners: 0, passes: 0, goals: 0,
+    shots: 0, xg: 0, corners: 0, passes: 0, goals: 0, yellow: 0, red: 0,
     b: { shots: Array(NB).fill(0), xg: Array(NB).fill(0), corners: Array(NB).fill(0), goals: Array(NB).fill(0) },
   };
+}
+
+function cardName(e) {
+  return e.foul_committed?.card?.name ?? e.bad_behaviour?.card?.name ?? null;
 }
 
 async function summarize(matchId, homeName, awayName) {
@@ -61,6 +65,9 @@ async function summarize(matchId, homeName, awayName) {
         t.b.corners[bi] += 1;
       }
     }
+    const card = cardName(e);
+    if (card === 'Yellow Card') t.yellow += 1;
+    else if (card === 'Red Card' || card === 'Second Yellow') t.red += 1;
   }
   // posse = quota de passes
   const tp = teams[homeName].passes + teams[awayName].passes || 1;
