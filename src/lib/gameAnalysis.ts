@@ -80,6 +80,54 @@ export function gamePreview(a: GameAnalysis): GamePreview {
   };
 }
 
+/** Confiança de uma sugestão: quantas casas a corroboram (1 = baixa). */
+export function selectionConfidence(s: SelectionAnalysis): {
+  level: 'baixa' | 'média' | 'alta';
+  books: number;
+  reason: string;
+} {
+  const positive = s.books.filter((b) => b.edge > 0).length;
+  const books = s.books.length;
+  if (books >= 2 && positive >= 2) return { level: 'alta', books, reason: 'várias casas a pagar acima do justo' };
+  if (books >= 2) return { level: 'média', books, reason: 'duas casas a cotar' };
+  return { level: 'baixa', books, reason: 'só uma casa a cotar — sem corroboração' };
+}
+
+export interface BestGame {
+  eventId: string;
+  home: string;
+  away: string;
+  startsAt: string;
+  topEdge: number;
+  topLabel: string;
+  topMarket: string;
+}
+
+/** Jogo com mais valor agora (maior edge positivo entre os próximos jogos). */
+export function bestValueGame(
+  snapshots: MarketSnapshot[],
+  config: EngineConfig,
+): BestGame | null {
+  let best: BestGame | null = null;
+  for (const ev of upcomingEvents(snapshots, 20)) {
+    const a = analyzeGame(snapshots, ev.id, config);
+    const top = a?.topBets[0];
+    if (!top || top.bestEdge <= 0) continue;
+    if (!best || top.bestEdge > best.topEdge) {
+      best = {
+        eventId: ev.id,
+        home: ev.home,
+        away: ev.away,
+        startsAt: ev.startsAt,
+        topEdge: top.bestEdge,
+        topLabel: top.label,
+        topMarket: top.marketLabel,
+      };
+    }
+  }
+  return best;
+}
+
 export function analyzeGame(
   snapshots: MarketSnapshot[],
   eventId: string,

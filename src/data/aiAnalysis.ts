@@ -2,9 +2,47 @@
  * Cliente da visão AI (chama a Edge Function /api/ai-analysis → Claude).
  * Constrói o prompt a partir da análise do jogo + stats das equipas.
  */
-import type { GameAnalysis } from '../lib/gameAnalysis';
+import { gamePreview, type GameAnalysis } from '../lib/gameAnalysis';
 import type { MatchupStats } from './apiFootball';
 import { signedPct, odd as fmtOdd, pct } from '../lib/format';
+
+/**
+ * Análise automática DETERMINÍSTICA (sem IA) — funciona sem chave nenhuma.
+ * Lê o preview do jogo + as melhores apostas + stats e escreve um resumo.
+ */
+export function localAnalysis(a: GameAnalysis, stats: MatchupStats | null): string {
+  const p = gamePreview(a);
+  const fav =
+    p.favorite === 'home' ? a.event.home : p.favorite === 'away' ? a.event.away : 'o empate';
+  const parts: string[] = [];
+  parts.push(
+    `${a.event.home} vs ${a.event.away}: ${fav} ${p.balance === 'jogo equilibrado' ? '— jogo equilibrado' : `é ${p.balance}`} ` +
+      `(${a.event.home} ${pct(p.homeProb, 0)} · X ${pct(p.drawProb, 0)} · ${a.event.away} ${pct(p.awayProb, 0)}).`,
+  );
+  if (p.overProb != null) {
+    parts.push(
+      `Tendência de golos: Over ${p.overLine} a ${pct(p.overProb, 0)} — ${p.overProb >= 0.5 ? 'aponta a jogo aberto' : 'aponta a jogo fechado'}.`,
+    );
+  }
+  if (stats?.home && stats?.away) {
+    parts.push(
+      `Forma: ${stats.home.team} ${stats.home.form.join('')} (${stats.home.gfAvg}/${stats.home.gaAvg} golos), ` +
+        `${stats.away.team} ${stats.away.form.join('')} (${stats.away.gfAvg}/${stats.away.gaAvg}).`,
+    );
+  }
+  if (a.topBets.length > 0) {
+    const t = a.topBets[0];
+    parts.push(
+      `Melhor valor: ${t.marketLabel} — ${t.label} (${t.bestBook?.toUpperCase()} @ ${fmtOdd(t.bestOdd)}, edge ${signedPct(t.bestEdge)}). ` +
+        `Paga acima do justo (${fmtOdd(t.fairOdd)}).`,
+    );
+    if (t.books.length < 2) parts.push('⚠ Confiança baixa: só uma casa a cotar, sem corroboração.');
+  } else {
+    parts.push('Sem valor positivo claro neste jogo de momento.');
+  }
+  parts.push('Edges pequenos exigem volume. Aposta com responsabilidade.');
+  return parts.join('\n\n');
+}
 
 export async function getAIAnalysis(prompt: string): Promise<string> {
   const res = await fetch('/api/ai-analysis', {
