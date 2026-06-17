@@ -26,15 +26,19 @@ export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') return json({ error: 'usa POST' }, 405);
 
   let prompt = '';
+  let web = false;
   try {
-    prompt = (await req.json())?.prompt ?? '';
+    const body = await req.json();
+    prompt = body?.prompt ?? '';
+    web = body?.web === true;
   } catch {
     return json({ error: 'corpo inválido' }, 400);
   }
   if (!prompt) return json({ error: 'prompt vazio' }, 400);
 
   try {
-    if (process.env.GEMINI_API_KEY) return json({ text: await gemini(prompt) }, 200);
+    // A pesquisa na net (tipsters/notícias) só existe no Gemini (Google Search).
+    if (process.env.GEMINI_API_KEY) return json(await gemini(prompt, web), 200);
     if (process.env.GROQ_API_KEY) return json({ text: await groq(prompt) }, 200);
     if (process.env.ANTHROPIC_API_KEY) return json({ text: await anthropic(prompt) }, 200);
     return json({ error: 'sem chave de IA configurada (GEMINI_API_KEY / GROQ_API_KEY / ANTHROPIC_API_KEY)' }, 503);
@@ -43,32 +47,39 @@ export default async function handler(req: Request): Promise<Response> {
   }
 }
 
-async function gemini(prompt: string): Promise<string> {
+async function gemini(prompt: string, web: boolean): Promise<{ text: string; sources?: Array<{ title: string; uri: string }> }> {
   const model = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
+  const body: Record<string, unknown> = {
+    system_instruction: { parts: [{ text: SYSTEM }] },
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: {
+      maxOutputTokens: 2048,
+      temperature: 0.6,
+      // thinkingBudget: 0 desliga o "thinking" do 2.5 (senão consome os tokens
+      // antes da resposta). Com pesquisa web damos mais espaço.
+      thinkingConfig: { thinkingBudget: web ? 512 : 0 },
+    },
+  };
+  // Pesquisa Google integrada (grounding) — tipsters, notícias, lesões, onzes.
+  if (web) body.tools = [{ google_search: {} }];
+
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM }] },
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          maxOutputTokens: 2048,
-          temperature: 0.6,
-          // Gemini 2.5 tem "thinking" ligado por defeito, que consome o
-          // orçamento de tokens ANTES da resposta → cortava a meio.
-          // thinkingBudget: 0 desliga o thinking e toda a saída vai para o texto.
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-      }),
-    },
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
   );
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error?.message ?? `Gemini HTTP ${res.status}`);
-  return (
-    data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('').trim() ?? ''
-  );
+  const cand = data?.candidates?.[0];
+  const text =
+    cand?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('').trim() ?? '';
+  // fontes da pesquisa (grounding)
+  const chunks = cand?.groundingMetadata?.groundingChunks ?? [];
+  const sources = chunks
+    .map((c: { web?: { uri?: string; title?: string } }) => c.web)
+    .filter((w: unknown): w is { uri: string; title: string } => !!(w as { uri?: string })?.uri)
+    .map((w: { uri: string; title?: string }) => ({ uri: w.uri, title: w.title ?? w.uri }))
+    .slice(0, 8);
+  return { text, sources };
 }
 
 async function groq(prompt: string): Promise<string> {
