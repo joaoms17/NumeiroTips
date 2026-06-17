@@ -125,11 +125,29 @@ export function buildPrompt(a: GameAnalysis, stats: MatchupStats | null): string
   );
 
   L.push('');
-  L.push('## Pesquisa na net (IMPORTANTE)');
+  L.push('## Pesquisa na net (IMPORTANTE — usa VÁRIAS fontes)');
   L.push(
-    'Pesquisa no Google a preview deste jogo: opiniões de TIPSTERS/analistas, e NOTÍCIAS recentes — ' +
-      'lesões, suspensões, onze provável, rotação, motivação/contexto (fase do torneio, o que cada equipa precisa). ' +
-      'Cruza isso com os números abaixo. Se a net contradisser as odds, di-lo.',
+    'Faz VÁRIAS pesquisas no Google sobre este jogo e CRUZA o máximo de fontes que conseguires. ' +
+      'Não fiques por um site — procura ativamente PÁGINAS DE DICAS/PROGNÓSTICOS e a opinião de vários tipsters, por exemplo:',
+  );
+  L.push(
+    '- Páginas de prognósticos: Forebet, PredictZ, WinDrawWin, OLBG, Betimate, Betensified, ' +
+      'Academia das Apostas (PT), Zerozero (PT), Soccer Predictions, Adam Choi / SoccerVista.',
+  );
+  L.push(
+    '- Stats e previsões: SofaScore, WhoScored, FootyStats, FBref, Flashscore (prováveis onzes e forma).',
+  );
+  L.push(
+    '- Opinião da comunidade: Reddit r/SoccerBetting (threads de match/picks), X/Twitter de tipsters, blogs de apostas.',
+  );
+  L.push(
+    '- Notícias recentes (chave): lesões, suspensões, onze provável, rotação, motivação/contexto ' +
+      '(fase do torneio, o que cada equipa precisa, calendário). Procura nos media desportivos dos dois países.',
+  );
+  L.push(
+    'Reporta o CONSENSO dessas fontes: quantas apontam para o mesmo lado, onde divergem, e que mercados ' +
+      'aparecem repetidos nas dicas. Se a net contradisser as odds/os números, di-lo claramente. ' +
+      'Distingue fontes credíveis de ruído; não inventes uma fonte que não viste.',
   );
 
   L.push('');
@@ -146,10 +164,14 @@ export function buildPrompt(a: GameAnalysis, stats: MatchupStats | null): string
   L.push('');
   L.push('Depois disso:');
   L.push('- **Leitura do jogo** (probabilidades + forma + h2h + net).');
-  L.push('- **Notícias/contexto** (lesões, onze, motivação, o que dizem os tipsters).');
-  L.push('- **A evitar** (suspeitas / fiabilidade baixa / contra a forma ou notícias).');
+  L.push(
+    '- **Consenso de dicas (tipsters)** — resume o que dizem as VÁRIAS páginas de prognósticos/tipsters que pesquisaste: ' +
+      'para que lado pendem, em que mercados concordam, onde divergem. Menciona as fontes pelo nome (ex.: "Forebet e PredictZ apontam...").',
+  );
+  L.push('- **Notícias/contexto** (lesões, onze provável, suspensões, motivação).');
+  L.push('- **A evitar** (suspeitas / fiabilidade baixa / contra a forma, notícias ou consenso).');
   L.push('- **Veredicto** (1 frase + confiança global).');
-  L.push('Sê específico e fundamentado; não inventes dados. Termina com nota curta de jogo responsável.');
+  L.push('Sê específico e fundamentado; não inventes dados nem fontes. Termina com nota curta de jogo responsável.');
 
   return L.join('\n');
 }
