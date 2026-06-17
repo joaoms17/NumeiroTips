@@ -244,8 +244,15 @@ export interface TrackedBet {
   edgeAtBet: number;
   result: BetResult;
   pnl: number | null;
-  /** Closing line value, preenchido ao liquidar. */
+  /** Closing line value (odd / odd_justa_de_fecho − 1). */
   clv: number | null;
+  /** Id da seleção e do evento — para capturar a linha de fecho automaticamente. */
+  selectionId?: string;
+  eventId?: string;
+  /** Início do jogo (ISO) — quando passa, congela a linha de fecho. */
+  startsAt?: string;
+  /** Odd justa sharp mais recente antes do início (linha de fecho aproximada). */
+  closingFairOdd?: number | null;
   placedAt: string;
   settledAt: string | null;
 }

@@ -11,7 +11,7 @@
  * sem backend obrigatório no MVP).
  */
 import { create } from 'zustand';
-import { evaluateFeed } from '../engine/engine';
+import { evaluateFeed, currentFairOdd } from '../engine/engine';
 import { scanArbitrage, type ArbOpportunity } from '../engine/arbitrage';
 import {
   recordSample,
@@ -132,7 +132,19 @@ export const useStore = create<AppState>((set, get) => ({
     }
     pruneHistory(aliveIds);
 
-    set({ valueBets: feed, snapshots: snaps, prevIndex: nextIndex, arbs, movement, lastTickAt: now });
+    // CLV: atualiza a linha de fecho das apostas pré-jogo (congela ao início).
+    const bets = updateClosingLines(get().bets, snaps, get().config);
+    if (bets !== get().bets) save({ config: get().config, filters: get().filters, bets });
+
+    set({
+      valueBets: feed,
+      snapshots: snaps,
+      prevIndex: nextIndex,
+      arbs,
+      movement,
+      bets,
+      lastTickAt: now,
+    });
   },
 
   setLiveValueBets: (bets) => {
@@ -180,6 +192,10 @@ export const useStore = create<AppState>((set, get) => ({
       result: 'pending',
       pnl: null,
       clv: null,
+      selectionId: vb.selection.id,
+      eventId: vb.event.id,
+      startsAt: vb.event.startsAt,
+      closingFairOdd: vb.fair.fairOdd,
       placedAt: new Date().toISOString(),
       settledAt: null,
     };
@@ -249,6 +265,29 @@ export const useStore = create<AppState>((set, get) => ({
 
 function round2(x: number): number {
   return Math.round(x * 100) / 100;
+}
+
+/**
+ * Atualiza a "linha de fecho" (odd justa sharp mais recente) das apostas
+ * PRÉ-JOGO. Quando o jogo começa, congela (o último valor = fecho). Recalcula o
+ * CLV. Devolve a MESMA referência se nada mudou (evita renders/saves).
+ */
+function updateClosingLines(
+  bets: TrackedBet[],
+  snaps: MarketSnapshot[],
+  config: EngineConfig,
+): TrackedBet[] {
+  const now = Date.now();
+  let changed = false;
+  const next = bets.map((b) => {
+    if (!b.selectionId || !b.startsAt) return b;
+    if (new Date(b.startsAt).getTime() <= now) return b; // jogo começou → congela
+    const fairOdd = currentFairOdd(snaps, b.selectionId, config);
+    if (fairOdd == null || b.closingFairOdd === fairOdd) return b;
+    changed = true;
+    return { ...b, closingFairOdd: fairOdd, clv: computeClv(b.odd, fairOdd) };
+  });
+  return changed ? next : bets;
 }
 
 /** Seletor: feed filtrado segundo os filtros atuais. */
