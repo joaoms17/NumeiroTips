@@ -5,6 +5,7 @@ export const env = {
   supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined,
   dataMode: (import.meta.env.VITE_DATA_MODE as string | undefined) ?? 'mock',
   theOddsApiKey: import.meta.env.VITE_THE_ODDS_API_KEY as string | undefined,
+  apiFootballKey: import.meta.env.VITE_API_FOOTBALL_KEY as string | undefined,
 };
 
 export type DataMode = 'mock' | 'theoddsapi' | 'live';
