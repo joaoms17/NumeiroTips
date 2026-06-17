@@ -130,6 +130,24 @@ export function computeConsensusFair(
   });
 }
 
+/**
+ * Odd justa (consenso) ATUAL de uma seleção, a partir dos snapshots — para
+ * capturar a linha de fecho sharp (CLV). null se a seleção não está presente.
+ */
+export function currentFairOdd(
+  snapshots: MarketSnapshot[],
+  selectionId: string,
+  config: EngineConfig,
+): number | null {
+  for (const snap of snapshots) {
+    if (!snap.selections.some((s) => s.id === selectionId)) continue;
+    const fairs = computeConsensusFair(snap, config.sharpSource, config.devigMethod);
+    const f = fairs?.find((x) => x.selectionId === selectionId);
+    if (f) return f.fairOdd;
+  }
+  return null;
+}
+
 /** Limiar de edge implausível (provável erro de odd). */
 const SUSPICIOUS_EDGE = 0.15;
 /** Divergência de sharps acima da qual o consenso é "frágil" (pp). */

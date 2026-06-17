@@ -5,6 +5,7 @@ import {
   computeFairPrices,
   computeConsensusFair,
   rateReliability,
+  currentFairOdd,
 } from '../src/engine/engine';
 import { DEFAULT_ENGINE_CONFIG } from '../src/lib/types';
 import type { MarketSnapshot, EngineConfig, FairPrice } from '../src/lib/types';
@@ -184,5 +185,13 @@ describe('consenso de sharps e fiabilidade', () => {
   it('rateReliability: 1 sharp + 1 casa = baixa', () => {
     const fair = { sharps: 1, divergence: 0 } as FairPrice;
     expect(rateReliability(fair, 0.03, 1).reliability).toBe('baixa');
+  });
+
+  it('currentFairOdd: devolve a odd justa de uma seleção (CLV)', () => {
+    const snap = makeSnapshot({ pinnacle: [2.0, 4.0, 4.0], betclic: [2, 4, 4], '1xbet': [2, 4, 4] });
+    const f = currentFairOdd([snap], 'evt1:1x2:home', config);
+    expect(f).not.toBeNull();
+    expect(f!).toBeGreaterThan(1);
+    expect(currentFairOdd([snap], 'nao:existe', config)).toBeNull();
   });
 });

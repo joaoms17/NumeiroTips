@@ -6,13 +6,14 @@ import { Filters } from './components/Filters';
 import { Settings } from './components/Settings';
 import { Arbitrage } from './components/Arbitrage';
 import { Analysis } from './components/Analysis';
+import { CLV } from './components/CLV';
 import { ago } from './lib/format';
 import { useNow } from './hooks/useNow';
 import { useHotkeys } from './hooks/useHotkeys';
 import { getDataMode } from './lib/env';
 import { BUILD_ID, hardRefresh } from './pwa';
 
-type Tab = 'feed' | 'analise' | 'arbitragem' | 'definicoes';
+type Tab = 'feed' | 'analise' | 'arbitragem' | 'clv' | 'definicoes';
 
 function DataModeBanner() {
   const mode = getDataMode();
@@ -46,7 +47,7 @@ export default function App() {
 
   // Atalhos de teclado: 1–7 troca separador, "/" foca a pesquisa do feed.
   const hotkeys = useMemo(() => {
-    const order: Tab[] = ['feed', 'analise', 'arbitragem', 'definicoes'];
+    const order: Tab[] = ['feed', 'analise', 'arbitragem', 'clv', 'definicoes'];
     const map: Record<string, (e: KeyboardEvent) => void> = {
       '/': (e) => {
         setTab('feed');
@@ -79,8 +80,8 @@ export default function App() {
           </span>
         )}
         <div className="spacer" />
-        <span className="status-pill mono hide-sm" title="Atalhos: 1–4 separadores · / pesquisa">
-          ⌨ 1–4 · /
+        <span className="status-pill mono hide-sm" title="Atalhos: 1–5 separadores · / pesquisa">
+          ⌨ 1–5 · /
         </span>
         <span className="status-pill mono hide-sm">{feedCount} +EV</span>
         <span className="status-pill mono hide-sm" title={`Versão do build: ${BUILD_ID}`}>
@@ -112,6 +113,9 @@ export default function App() {
           Buracos no mercado
           {arbCount > 0 && <span className="badge">{arbCount}</span>}
         </button>
+        <button className={`tab ${tab === 'clv' ? 'active' : ''}`} onClick={() => setTab('clv')}>
+          CLV
+        </button>
         <button
           className={`tab ${tab === 'definicoes' ? 'active' : ''}`}
           onClick={() => setTab('definicoes')}
@@ -129,6 +133,7 @@ export default function App() {
         )}
         {tab === 'analise' && <Analysis />}
         {tab === 'arbitragem' && <Arbitrage />}
+        {tab === 'clv' && <CLV />}
         {tab === 'definicoes' && <Settings />}
       </main>
     </div>
