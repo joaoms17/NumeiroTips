@@ -87,18 +87,22 @@ export function localAnalysis(a: GameAnalysis, stats: MatchupStats | null): stri
   return parts.join('\n\n');
 }
 
-export async function getAIAnalysis(prompt: string): Promise<string> {
+export interface AIResult {
+  text: string;
+  sources?: Array<{ title: string; uri: string }>;
+}
+
+export async function getAIAnalysis(prompt: string, web = false): Promise<AIResult> {
   const res = await fetch('/api/ai-analysis', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, web }),
   });
   if (!res.ok) {
     const e = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(e.error ?? `HTTP ${res.status}`);
   }
-  const { text } = (await res.json()) as { text: string };
-  return text;
+  return (await res.json()) as AIResult;
 }
 
 /** Prompt RICO e fundamentado para a análise de UM jogo. */
@@ -158,12 +162,21 @@ export function buildPrompt(a: GameAnalysis, stats: MatchupStats | null): string
   );
 
   L.push('');
+  L.push('## Pesquisa na net (IMPORTANTE)');
+  L.push(
+    'Pesquisa no Google a preview deste jogo: opiniões de TIPSTERS/analistas, e NOTÍCIAS recentes — ' +
+      'lesões, suspensões, onze provável, rotação, motivação/contexto (fase do torneio, o que cada equipa precisa). ' +
+      'Cruza isso com os números abaixo. Se a net contradisser as odds, di-lo.',
+  );
+
+  L.push('');
   L.push('## O que quero de ti (responde com estas secções)');
-  L.push('1) **Leitura do jogo** — favorito, equilíbrio, golos esperados, com base nas probabilidades + forma + h2h.');
-  L.push('2) **Onde está o valor** — escolhe as 1-2 apostas com melhor valor REAL (cruza edge × fiabilidade × stats). Justifica.');
-  L.push('3) **A evitar** — apostas suspeitas / fiabilidade baixa / contra a forma.');
-  L.push('4) **Veredicto** — 1 frase + nível de confiança (alto/médio/baixo).');
-  L.push('Sê específico e fundamentado nos números dados; não inventes dados. Termina com nota curta de jogo responsável.');
+  L.push('1) **Leitura do jogo** — favorito, equilíbrio, golos esperados (probabilidades + forma + h2h + o que leste na net).');
+  L.push('2) **Notícias/contexto** — lesões, onze, motivação e o que os tipsters dizem.');
+  L.push('3) **Onde está o valor** — as 1-2 apostas com melhor valor REAL (cruza edge × fiabilidade × stats × contexto). Justifica.');
+  L.push('4) **A evitar** — apostas suspeitas / fiabilidade baixa / contra a forma ou notícias.');
+  L.push('5) **Veredicto** — 1 frase + nível de confiança (alto/médio/baixo).');
+  L.push('Sê específico e fundamentado; não inventes dados. Termina com nota curta de jogo responsável.');
 
   return L.join('\n');
 }

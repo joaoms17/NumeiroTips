@@ -82,6 +82,7 @@ function GameView({ a }: { a: GameAnalysis }) {
   const [stats, setStats] = useState<MatchupStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [ai, setAi] = useState<string>('');
+  const [aiSources, setAiSources] = useState<Array<{ title: string; uri: string }>>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiErr, setAiErr] = useState<string | null>(null);
   const [aiLocal, setAiLocal] = useState(false);
@@ -105,7 +106,9 @@ function GameView({ a }: { a: GameAnalysis }) {
     setAiLocal(false);
     const s = stats ?? (hasApiFootballKey() ? await loadStats() : null);
     try {
-      setAi(await getAIAnalysis(buildPrompt(a, s)));
+      const r = await getAIAnalysis(buildPrompt(a, s), true); // web search ligado
+      setAi(r.text);
+      setAiSources(r.sources ?? []);
     } catch (e) {
       const msg = (e as Error).message;
       // sem chave de IA configurada → análise automática local (sem IA)
@@ -213,12 +216,12 @@ function GameView({ a }: { a: GameAnalysis }) {
         </div>
       )}
 
-      <div className="section-title">Visão AI 🤖</div>
+      <div className="section-title">Visão AI 🤖 (com pesquisa na net)</div>
       <div className="panel">
         <div style={{ padding: 14 }}>
           {!ai && (
             <button className="btn primary" onClick={runAI} disabled={aiLoading}>
-              {aiLoading ? 'A pensar…' : 'Gerar análise do jogo'}
+              {aiLoading ? 'A pesquisar e analisar…' : 'Analisar jogo (tipsters + notícias)'}
             </button>
           )}
           {aiErr && (
@@ -226,10 +229,22 @@ function GameView({ a }: { a: GameAnalysis }) {
           )}
           {aiLocal && (
             <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>
-              análise automática (sem IA) — define GEMINI_API_KEY (grátis) no servidor para a visão AI.
+              análise automática (sem IA) — define GEMINI_API_KEY (grátis) no servidor para a visão AI com pesquisa.
             </div>
           )}
           {ai && <div className="ai-text" dangerouslySetInnerHTML={{ __html: mdToHtml(ai) }} />}
+          {ai && aiSources.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <div className="detail-title">Fontes</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {aiSources.map((s, i) => (
+                  <a key={i} href={s.uri} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+                    ↗ {s.title}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
           {ai && (
             <button className="btn ghost" style={{ marginTop: 10 }} onClick={runAI} disabled={aiLoading}>
               {aiLoading ? 'A pensar…' : '↻ Regenerar'}
@@ -261,7 +276,8 @@ function DailyBriefing() {
     setErr(null);
     setLocal(false);
     try {
-      setText(await getAIAnalysis(buildDailyPrompt(top)));
+      const r = await getAIAnalysis(buildDailyPrompt(top));
+      setText(r.text);
     } catch (e) {
       const msg = (e as Error).message;
       if (/sem chave|503/i.test(msg)) {
