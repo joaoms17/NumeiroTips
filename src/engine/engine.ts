@@ -102,8 +102,11 @@ export function evaluateMarket(
       };
     });
 
-    // Só entra no feed se pelo menos uma casa-alvo for +EV.
-    if (!books.some((b) => b.isValue)) continue;
+    // Entra no feed qualquer seleção com valor POSITIVO (edge > 0), em todos os
+    // mercados. O filtro de edge mínimo do feed (slider) controla o que se vê,
+    // para não ficar tudo preso ao limiar do motor (que escondia over/under e
+    // handicaps com edge < limiar). `isValue` continua a marcar as ≥ limiar.
+    if (!books.some((b) => b.edge > 0)) continue;
 
     const shop = lineShop(
       fair.prob,

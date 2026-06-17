@@ -64,6 +64,8 @@ export interface AppState {
   filters: FeedFilters;
   /** Feed completo (não filtrado), ordenado por edge desc. */
   valueBets: ValueBet[];
+  /** Snapshots em bruto do último ciclo (para a página de Análise por jogo). */
+  snapshots: MarketSnapshot[];
   /** Index para preservar detectedAt entre ciclos. */
   prevIndex: Map<string, ValueBet>;
   /** Oportunidades de arbitragem (Fase 3), ordenadas por margem desc. */
@@ -102,6 +104,7 @@ export const useStore = create<AppState>((set, get) => ({
   config: { ...DEFAULT_ENGINE_CONFIG, ...persisted.config },
   filters: { ...DEFAULT_FILTERS, ...persisted.filters },
   valueBets: [],
+  snapshots: [],
   prevIndex: new Map(),
   arbs: [],
   movement: {},
@@ -129,7 +132,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
     pruneHistory(aliveIds);
 
-    set({ valueBets: feed, prevIndex: nextIndex, arbs, movement, lastTickAt: now });
+    set({ valueBets: feed, snapshots: snaps, prevIndex: nextIndex, arbs, movement, lastTickAt: now });
   },
 
   setLiveValueBets: (bets) => {
