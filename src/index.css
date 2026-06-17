@@ -812,12 +812,46 @@ tr.detail-row > td {
   flex-wrap: wrap;
 }
 
-/* ---- texto da visão AI ---- */
+/* ---- texto da visão AI (markdown renderizado) ---- */
 .ai-text {
-  white-space: pre-wrap;
-  line-height: 1.6;
+  line-height: 1.55;
   font-size: 13.5px;
+  color: var(--fg-1);
+}
+.ai-text .md-h {
   color: var(--fg-0);
+  font-weight: 700;
+  margin: 12px 0 4px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-family: var(--mono);
+}
+.ai-text .md-h:first-child {
+  margin-top: 0;
+}
+.ai-text .md-li {
+  padding-left: 16px;
+  position: relative;
+  margin: 2px 0;
+}
+.ai-text .md-li::before {
+  content: '▸';
+  position: absolute;
+  left: 2px;
+  color: var(--green);
+}
+.ai-text .md-sp {
+  height: 8px;
+}
+.ai-text strong {
+  color: var(--fg-0);
+}
+.ai-text code {
+  font-family: var(--mono);
+  background: var(--bg-3);
+  padding: 0 4px;
+  border-radius: 3px;
 }
 
 /* ---- estado: forma recente (W/D/L) ---- */

@@ -3,10 +3,10 @@
  * preços justos (de-vig da régua sharp) e o edge de cada casa-alvo, e devolve
  * as melhores apostas (+EV) ordenadas. Base para a página de Análise.
  */
-import { computeConsensusFair } from '../engine/engine';
+import { computeConsensusFair, rateReliability } from '../engine/engine';
 import { expectedValue } from './math/ev';
 import { marketLabel } from './format';
-import type { MarketSnapshot, EngineConfig, SportEvent, TargetBook, BookId } from './types';
+import type { MarketSnapshot, EngineConfig, SportEvent, TargetBook, BookId, Reliability } from './types';
 
 export interface SelectionAnalysis {
   selectionId: string;
@@ -16,10 +16,14 @@ export interface SelectionAnalysis {
   label: string;
   prob: number; // prob. justa
   fairOdd: number;
+  /** Nº de réguas sharp no consenso (1 ou 2). */
+  sharps: number;
   books: Array<{ book: TargetBook; odd: number; edge: number }>;
   bestBook: TargetBook | null;
   bestOdd: number;
   bestEdge: number;
+  reliability: Reliability;
+  suspicious: boolean;
 }
 
 export interface GameAnalysis {
@@ -158,6 +162,8 @@ export function analyzeGame(
       }
       if (books.length === 0) continue;
       const best = books.reduce((a, b) => (b.edge > a.edge ? b : a), books[0]);
+      const corroborating = books.filter((b) => b.edge > 0).length;
+      const { reliability, suspicious } = rateReliability(fair, best.edge, corroborating);
       selections.push({
         selectionId: sel.id,
         market: snap.market,
@@ -166,10 +172,13 @@ export function analyzeGame(
         label: sel.label,
         prob: fair.prob,
         fairOdd: fair.fairOdd,
+        sharps: fair.sharps,
         books: books.sort((a, b) => b.edge - a.edge),
         bestBook: best.edge > 0 ? best.book : null,
         bestOdd: best.odd,
         bestEdge: best.edge,
+        reliability,
+        suspicious,
       });
     }
   }
