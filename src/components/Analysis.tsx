@@ -4,9 +4,16 @@
  */
 import { useMemo, useState } from 'react';
 import { useStore } from '../state/store';
-import { analyzeGame, gamePreview, upcomingEvents, type GameAnalysis } from '../lib/gameAnalysis';
+import {
+  analyzeGame,
+  gamePreview,
+  upcomingEvents,
+  bestValueGame,
+  selectionConfidence,
+  type GameAnalysis,
+} from '../lib/gameAnalysis';
 import { getMatchupStats, hasApiFootballKey, type MatchupStats, type LiveTeamTrends } from '../data/apiFootball';
-import { getAIAnalysis, buildPrompt } from '../data/aiAnalysis';
+import { getAIAnalysis, buildPrompt, localAnalysis } from '../data/aiAnalysis';
 import { ACCOUNT_BOOK_META } from '../lib/types';
 import { odd as fmtOdd, pct, shortTime, signedPct } from '../lib/format';
 
@@ -21,6 +28,7 @@ export function Analysis() {
     () => (selId ? analyzeGame(snapshots, selId, config) : null),
     [snapshots, selId, config],
   );
+  const best = useMemo(() => bestValueGame(snapshots, config), [snapshots, config]);
 
   if (events.length === 0) {
     return (
@@ -32,6 +40,17 @@ export function Analysis() {
 
   return (
     <div>
+      {best && best.eventId !== selId && (
+        <div
+          className="note ok"
+          style={{ marginTop: 0, cursor: 'pointer' }}
+          onClick={() => setEventId(best.eventId)}
+        >
+          ⭐ <strong>Jogo do dia:</strong> {best.home} v {best.away} — melhor valor em{' '}
+          {best.topMarket} ({best.topLabel}, +{signedPct(best.topEdge)}). Toca para analisar.
+        </div>
+      )}
+
       <div className="filters">
         <div className="field" style={{ flex: 1, minWidth: 240 }}>
           <label>Próximos jogos</label>
@@ -56,6 +75,7 @@ function GameView({ a }: { a: GameAnalysis }) {
   const [ai, setAi] = useState<string>('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiErr, setAiErr] = useState<string | null>(null);
+  const [aiLocal, setAiLocal] = useState(false);
 
   const loadStats = async (): Promise<MatchupStats | null> => {
     setStatsLoading(true);
@@ -73,11 +93,19 @@ function GameView({ a }: { a: GameAnalysis }) {
   const runAI = async () => {
     setAiLoading(true);
     setAiErr(null);
+    setAiLocal(false);
+    const s = stats ?? (hasApiFootballKey() ? await loadStats() : null);
     try {
-      const s = stats ?? (hasApiFootballKey() ? await loadStats() : null);
       setAi(await getAIAnalysis(buildPrompt(a, s)));
     } catch (e) {
-      setAiErr((e as Error).message);
+      const msg = (e as Error).message;
+      // sem chave de IA configurada → análise automática local (sem IA)
+      if (/sem chave|503/i.test(msg)) {
+        setAi(localAnalysis(a, s));
+        setAiLocal(true);
+      } else {
+        setAiErr(msg);
+      }
     } finally {
       setAiLoading(false);
     }
@@ -134,6 +162,14 @@ function GameView({ a }: { a: GameAnalysis }) {
           </table>
         </div>
       )}
+      {a.topBets.length > 0 && (() => {
+        const c = selectionConfidence(a.topBets[0]);
+        return (
+          <div className={`note ${c.level === 'baixa' ? 'danger' : c.level === 'alta' ? 'ok' : ''}`}>
+            Confiança da melhor sugestão: <strong>{c.level}</strong> — {c.reason}.
+          </div>
+        );
+      })()}
 
       <div className="section-title">Stats das equipas</div>
       {!hasApiFootballKey() ? (
@@ -167,14 +203,15 @@ function GameView({ a }: { a: GameAnalysis }) {
         <div style={{ padding: 14 }}>
           {!ai && (
             <button className="btn primary" onClick={runAI} disabled={aiLoading}>
-              {aiLoading ? 'A pensar…' : 'Gerar visão AI do jogo'}
+              {aiLoading ? 'A pensar…' : 'Gerar análise do jogo'}
             </button>
           )}
           {aiErr && (
-            <div className="note danger" style={{ marginTop: ai ? 0 : 10 }}>
-              {aiErr.includes('ANTHROPIC')
-                ? 'Visão AI desativada: define ANTHROPIC_API_KEY no servidor (Vercel) para ativar.'
-                : aiErr}
+            <div className="note danger" style={{ marginTop: ai ? 0 : 10 }}>{aiErr}</div>
+          )}
+          {aiLocal && (
+            <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>
+              análise automática (sem IA) — define GEMINI_API_KEY (grátis) no servidor para a visão AI.
             </div>
           )}
           {ai && <div className="ai-text">{ai}</div>}
@@ -187,8 +224,7 @@ function GameView({ a }: { a: GameAnalysis }) {
       </div>
 
       <div className="note">
-        A visão AI é uma opinião gerada por modelo a partir das odds e stats — não é garantia.
-        Aposta com responsabilidade.
+        Opinião gerada a partir das odds e stats — não é garantia. Aposta com responsabilidade.
       </div>
     </div>
   );
