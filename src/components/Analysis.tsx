@@ -4,7 +4,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useStore } from '../state/store';
-import { analyzeGame, upcomingEvents, type GameAnalysis } from '../lib/gameAnalysis';
+import { analyzeGame, gamePreview, upcomingEvents, type GameAnalysis } from '../lib/gameAnalysis';
 import { getMatchupStats, hasApiFootballKey, type MatchupStats, type LiveTeamTrends } from '../data/apiFootball';
 import { getAIAnalysis, buildPrompt } from '../data/aiAnalysis';
 import { ACCOUNT_BOOK_META } from '../lib/types';
@@ -97,7 +97,9 @@ function GameView({ a }: { a: GameAnalysis }) {
         </div>
       </div>
 
-      <div className="section-title">Melhores apostas (+EV)</div>
+      <GamePreview a={a} />
+
+      <div className="section-title">Sugestões de mercado com mais valor</div>
       {a.topBets.length === 0 ? (
         <div className="note">Sem valor positivo de momento neste jogo (a fonte grátis pode não cobrir todos os mercados).</div>
       ) : (
@@ -110,6 +112,7 @@ function GameView({ a }: { a: GameAnalysis }) {
                 <th>Justa</th>
                 <th>Melhor</th>
                 <th>Edge</th>
+                <th className="l hide-sm">Porquê</th>
               </tr>
             </thead>
             <tbody>
@@ -122,6 +125,9 @@ function GameView({ a }: { a: GameAnalysis }) {
                     {b.bestBook ? ACCOUNT_BOOK_META[b.bestBook].label : '—'} {fmtOdd(b.bestOdd)}
                   </td>
                   <td className="mono pos">{signedPct(b.bestEdge)}</td>
+                  <td className="l muted hide-sm" style={{ fontSize: 12 }}>
+                    paga {fmtOdd(b.bestOdd)} vs justo {fmtOdd(b.fairOdd)} → +{signedPct(b.bestEdge)} de valor
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -148,6 +154,11 @@ function GameView({ a }: { a: GameAnalysis }) {
         <div className="calc-row" style={{ marginTop: 6 }}>
           <span className="lbl">Head-to-head ({stats.h2h.played})</span>
           <span className="val mono">{stats.h2h.homeWins}V {stats.h2h.draws}E {stats.h2h.awayWins}D · {stats.h2h.avgGoals} golos</span>
+        </div>
+      )}
+      {stats && stats.remaining === 0 && (
+        <div className="note danger" style={{ marginTop: 6 }}>
+          Quota diária da API-Football esgotada (100/dia) — reseta às 00:00 UTC.
         </div>
       )}
 
@@ -178,6 +189,33 @@ function GameView({ a }: { a: GameAnalysis }) {
       <div className="note">
         A visão AI é uma opinião gerada por modelo a partir das odds e stats — não é garantia.
         Aposta com responsabilidade.
+      </div>
+    </div>
+  );
+}
+
+function GamePreview({ a }: { a: GameAnalysis }) {
+  const p = gamePreview(a);
+  const favName =
+    p.favorite === 'home' ? a.event.home : p.favorite === 'away' ? a.event.away : 'Empate';
+  const overText =
+    p.overProb != null
+      ? `Tendência de golos: Over ${p.overLine} a ${pct(p.overProb, 0)} (${p.overProb >= 0.5 ? 'jogo aberto' : 'jogo fechado'}).`
+      : 'Tendência de golos: sem linha de totais na fonte para este jogo.';
+  return (
+    <div className="panel" style={{ marginBottom: 12 }}>
+      <div className="panel-h">Como deve ser o jogo</div>
+      <div style={{ padding: 14 }}>
+        <div className="calc-row">
+          <span className="lbl">Resultado (prob. justas)</span>
+          <span className="val mono">
+            {a.event.home} {pct(p.homeProb, 0)} · X {pct(p.drawProb, 0)} · {a.event.away} {pct(p.awayProb, 0)}
+          </span>
+        </div>
+        <div style={{ marginTop: 8, lineHeight: 1.6 }}>
+          <strong>{favName}</strong> {p.balance === 'jogo equilibrado' ? '— ' : 'é '}
+          {p.balance}. {overText}
+        </div>
       </div>
     </div>
   );

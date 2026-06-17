@@ -88,15 +88,17 @@ describe('motor — deteção de value bets', () => {
     expect(homeBet!.stake!).toBeGreaterThan(0);
   });
 
-  it('não sinaliza nada quando ambas as casas têm margem normal', () => {
-    // casas-alvo sempre abaixo do justo → feed vazio
+  it('inclui seleções mesmo com margem normal (edge ≤ 0), mas todas -EV', () => {
+    // casas-alvo sempre abaixo do justo → entram na lista (para ver as odds),
+    // mas com edge negativo. O filtro do feed é que esconde por defeito.
     const snap = makeSnapshot({
       pinnacle: [2.0, 4.0, 4.0],
       betclic: [1.9, 3.7, 3.7],
       '1xbet': [1.88, 3.65, 3.65],
     });
     const bets = evaluateMarket(snap, config);
-    expect(bets.length).toBe(0);
+    expect(bets.length).toBe(3); // 3 seleções 1X2
+    expect(bets.every((b) => b.bestEdge <= 0)).toBe(true);
   });
 
   it('preserva detectedAt entre ciclos (atualização incremental)', () => {

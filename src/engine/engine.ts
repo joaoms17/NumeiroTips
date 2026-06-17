@@ -102,11 +102,11 @@ export function evaluateMarket(
       };
     });
 
-    // Entra no feed qualquer seleção com valor POSITIVO (edge > 0), em todos os
-    // mercados. O filtro de edge mínimo do feed (slider) controla o que se vê,
-    // para não ficar tudo preso ao limiar do motor (que escondia over/under e
-    // handicaps com edge < limiar). `isValue` continua a marcar as ≥ limiar.
-    if (!books.some((b) => b.edge > 0)) continue;
+    // Entra no feed qualquer seleção que tenha pelo menos uma cotação de uma
+    // casa-alvo — INCLUINDO edge negativo. O filtro de edge mínimo do feed
+    // (slider, que aceita valores negativos) é o único controlo do que se vê.
+    // Assim as odds da Betclic também aparecem quando ela cota, mesmo -EV.
+    // (já garantido acima: quotes.length > 0)
 
     const shop = lineShop(
       fair.prob,

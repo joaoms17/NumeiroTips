@@ -255,10 +255,14 @@ function round2(x: number): number {
 export function selectFilteredFeed(state: AppState): ValueBet[] {
   const { valueBets, filters } = state;
   const q = filters.search.trim().toLowerCase();
+  const horizon =
+    filters.withinHours > 0 ? Date.now() + filters.withinHours * 3600_000 : Infinity;
   return valueBets.filter((vb) => {
     if (filters.market !== 'all' && vb.selection.market !== filters.market) return false;
     if (vb.bestEdge < filters.minEdge) return false;
     if (vb.bestOdd < filters.minOdd) return false;
+    if (filters.maxOdd > 0 && vb.bestOdd > filters.maxOdd) return false;
+    if (new Date(vb.event.startsAt).getTime() > horizon) return false;
     if (filters.book !== 'all' && !vb.books.some((b) => b.book === filters.book && b.isValue))
       return false;
     if (q) {
