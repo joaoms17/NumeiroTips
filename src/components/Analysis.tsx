@@ -13,7 +13,13 @@ import {
   type GameAnalysis,
 } from '../lib/gameAnalysis';
 import { getMatchupStats, hasApiFootballKey, type MatchupStats, type LiveTeamTrends } from '../data/apiFootball';
-import { getAIAnalysis, buildPrompt, localAnalysis } from '../data/aiAnalysis';
+import {
+  getAIAnalysis,
+  buildPrompt,
+  localAnalysis,
+  buildDailyPrompt,
+  localDailyBriefing,
+} from '../data/aiAnalysis';
 import { ACCOUNT_BOOK_META } from '../lib/types';
 import { odd as fmtOdd, pct, shortTime, signedPct } from '../lib/format';
 
@@ -40,6 +46,8 @@ export function Analysis() {
 
   return (
     <div>
+      <DailyBriefing />
+
       {best && best.eventId !== selId && (
         <div
           className="note ok"
@@ -225,6 +233,63 @@ function GameView({ a }: { a: GameAnalysis }) {
 
       <div className="note">
         Opinião gerada a partir das odds e stats — não é garantia. Aposta com responsabilidade.
+      </div>
+    </div>
+  );
+}
+
+function DailyBriefing() {
+  const valueBets = useStore((s) => s.valueBets);
+  const top = useMemo(
+    () => valueBets.filter((b) => b.bestEdge > 0).slice(0, 10),
+    [valueBets],
+  );
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [local, setLocal] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const run = async () => {
+    setLoading(true);
+    setErr(null);
+    setLocal(false);
+    try {
+      setText(await getAIAnalysis(buildDailyPrompt(top)));
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (/sem chave|503/i.test(msg)) {
+        setText(localDailyBriefing(top));
+        setLocal(true);
+      } else setErr(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="panel" style={{ marginBottom: 12 }}>
+      <div className="panel-h" style={{ justifyContent: 'space-between' }}>
+        <span>🤖 Resumo do dia (AI)</span>
+        <span className="muted mono">{top.length} apostas com valor</span>
+      </div>
+      <div style={{ padding: 14 }}>
+        {!text && (
+          <button className="btn primary" onClick={run} disabled={loading || top.length === 0}>
+            {loading ? 'A pensar…' : top.length === 0 ? 'Sem apostas com valor agora' : 'O que apostar hoje?'}
+          </button>
+        )}
+        {err && <div className="note danger">{err}</div>}
+        {local && (
+          <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>
+            resumo automático (sem IA) — define GEMINI_API_KEY (grátis) no servidor para a visão AI.
+          </div>
+        )}
+        {text && <div className="ai-text">{text}</div>}
+        {text && (
+          <button className="btn ghost" style={{ marginTop: 10 }} onClick={run} disabled={loading}>
+            {loading ? 'A pensar…' : '↻ Regenerar'}
+          </button>
+        )}
       </div>
     </div>
   );
