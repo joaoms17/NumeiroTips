@@ -812,6 +812,14 @@ tr.detail-row > td {
   flex-wrap: wrap;
 }
 
+/* ---- texto da visão AI ---- */
+.ai-text {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  font-size: 13.5px;
+  color: var(--fg-0);
+}
+
 /* ---- estado: forma recente (W/D/L) ---- */
 .form-dot {
   display: inline-flex;
