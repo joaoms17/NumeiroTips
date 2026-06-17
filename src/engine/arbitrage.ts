@@ -2,8 +2,8 @@
  * Scanner de arbitragem sobre os snapshots de mercado.
  *
  * Para cada mercado, tenta cobrir todos os resultados usando a melhor odd entre
- * as casas onde se pode APOSTAR — as casas-alvo (Betclic, 1xBet) e a Betfair
- * Exchange (back). A régua sharp (Pinnacle) fica de fora por ser só referência.
+ * as casas-alvo onde se aposta mesmo: Betclic e 1xBet. As réguas sharp
+ * (Pinnacle e Betfair) ficam de fora — são só referência, não casas de aposta.
  *
  * Devolve as oportunidades com margem garantida ≥ limiar, ordenadas por margem.
  */
@@ -11,7 +11,7 @@ import { findArbitrage, type ArbOutcome, type ArbLeg } from '../lib/math/arbitra
 import type { MarketSnapshot, BookId, SportEvent, MarketType } from '../lib/types';
 
 /** Casas onde se pode efetivamente apostar para fechar a arbitragem. */
-const BACKABLE_BOOKS: BookId[] = ['betclic', '1xbet', 'betfair'];
+const BACKABLE_BOOKS: BookId[] = ['betclic', '1xbet'];
 
 export interface ArbOpportunity {
   id: string;

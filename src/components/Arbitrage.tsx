@@ -47,8 +47,8 @@ export function Arbitrage() {
             Sem arbitragens agora.
             <br />
             <span className="muted">
-              Surebets entre Betclic, 1xBet e Betfair são raras e fecham depressa — o scanner está
-              a varrer continuamente.
+              Surebets entre Betclic e 1xBet são raras e fecham depressa — o scanner está a varrer
+              continuamente.
             </span>
           </div>
         </div>

@@ -4,9 +4,66 @@
  */
 import { useMemo, useState } from 'react';
 import { useStore } from '../state/store';
-import { BOOK_META } from '../lib/types';
-import type { BetResult, TrackedBet } from '../lib/types';
+import { ACCOUNT_BOOK_META, ACCOUNT_BOOKS } from '../lib/types';
+import type { AccountBook, BetResult, TrackedBet } from '../lib/types';
 import { eur, signedPct, odd as fmtOdd } from '../lib/format';
+
+function ManualBetForm() {
+  const addManualBet = useStore((s) => s.addManualBet);
+  const [label, setLabel] = useState('');
+  const [book, setBook] = useState<AccountBook>('betano');
+  const [stake, setStake] = useState(5);
+  const [oddV, setOddV] = useState(2.0);
+  const [fairOdd, setFairOdd] = useState('');
+
+  const submit = () => {
+    if (!(oddV > 1) || stake <= 0) return;
+    addManualBet({
+      label,
+      book,
+      stake,
+      odd: oddV,
+      fairOdd: fairOdd ? Number(fairOdd) : undefined,
+    });
+    setLabel('');
+  };
+
+  return (
+    <div className="panel" style={{ marginBottom: 12 }}>
+      <div className="panel-h">Registar aposta (qualquer casa)</div>
+      <div style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div className="field">
+          <label>Descrição</label>
+          <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Benfica v Porto — Casa" style={{ width: 200 }} />
+        </div>
+        <div className="field">
+          <label>Casa</label>
+          <select value={book} onChange={(e) => setBook(e.target.value as AccountBook)}>
+            {ACCOUNT_BOOKS.map((b) => (
+              <option key={b} value={b}>
+                {ACCOUNT_BOOK_META[b].label}
+                {ACCOUNT_BOOK_META[b].risk === 'cinzenta' ? ' (cinzenta)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label>Stake €</label>
+          <input type="number" min={0} step={0.5} value={stake} onChange={(e) => setStake(Number(e.target.value) || 0)} style={{ width: 80 }} />
+        </div>
+        <div className="field">
+          <label>Odd</label>
+          <input type="number" min={1.01} step={0.01} value={oddV} onChange={(e) => setOddV(Number(e.target.value) || 1.01)} style={{ width: 80 }} />
+        </div>
+        <div className="field">
+          <label>Odd justa (op.)</label>
+          <input type="number" min={1.01} step={0.01} value={fairOdd} onChange={(e) => setFairOdd(e.target.value)} placeholder="—" style={{ width: 80 }} />
+        </div>
+        <button className="btn primary" onClick={submit}>Registar</button>
+      </div>
+    </div>
+  );
+}
 
 export function BetTracker() {
   const bets = useStore((s) => s.bets);
@@ -26,6 +83,7 @@ export function BetTracker() {
 
   return (
     <div>
+      <ManualBetForm />
       <div className="grid-3">
         <Stat k="P/L liquidado" v={eur(stats.pnl)} cls={stats.pnl >= 0 ? 'pos' : 'neg'} />
         <Stat
@@ -100,7 +158,7 @@ function BetRow({ bet }: { bet: TrackedBet }) {
         <span className="sel-cell">{bet.label}</span>
       </td>
       <td>
-        <span className="mono">{BOOK_META[bet.book].label}</span>
+        <span className="mono">{ACCOUNT_BOOK_META[bet.book].label}</span>
       </td>
       <td>{eur(bet.stake)}</td>
       <td>{fmtOdd(bet.odd)}</td>

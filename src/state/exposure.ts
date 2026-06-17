@@ -10,11 +10,11 @@
  * "Exposição" aqui = stake pendente (em risco) + lucro acumulado retido por
  * casa. Sinalizamos risco quando ultrapassa limites configuráveis.
  */
-import type { TrackedBet, TargetBook } from '../lib/types';
-import { BOOK_META } from '../lib/types';
+import type { TrackedBet, AccountBook } from '../lib/types';
+import { ACCOUNT_BOOK_META } from '../lib/types';
 
 export interface BookExposure {
-  book: TargetBook;
+  book: AccountBook;
   label: string;
   risk: 'licenciada' | 'cinzenta';
   /** Stake em apostas pendentes (em risco agora). */
@@ -44,7 +44,12 @@ export function computeExposure(
   bets: TrackedBet[],
   limits: ExposureLimits = DEFAULT_EXPOSURE_LIMITS,
 ): BookExposure[] {
-  const books: TargetBook[] = ['betclic', '1xbet'];
+  // Casas a mostrar: as principais (Betclic/1xBet) + qualquer uma com apostas.
+  const withBets = new Set<AccountBook>(bets.map((b) => b.book));
+  const books = (['betclic', '1xbet'] as AccountBook[]).concat(
+    [...withBets].filter((b) => b !== 'betclic' && b !== '1xbet'),
+  );
+
   return books.map((book) => {
     const mine = bets.filter((b) => b.book === book);
     const pendingBets = mine.filter((b) => b.result === 'pending');
@@ -52,7 +57,7 @@ export function computeExposure(
     const settledPnl = round2(
       mine.filter((b) => b.result !== 'pending').reduce((s, b) => s + (b.pnl ?? 0), 0),
     );
-    const meta = BOOK_META[book];
+    const meta = ACCOUNT_BOOK_META[book];
 
     let atRisk = false;
     let reason: string | undefined;
@@ -62,7 +67,7 @@ export function computeExposure(
     }
     if (meta.risk === 'cinzenta' && settledPnl > limits.maxGreyBalance) {
       atRisk = true;
-      reason = `Saldo retido ${settledPnl}€ na 1xBet — considera levantar`;
+      reason = `Saldo retido ${settledPnl}€ na ${meta.label} — considera levantar`;
     }
 
     return {

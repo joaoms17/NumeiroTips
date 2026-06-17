@@ -8,16 +8,21 @@ import { Exposure } from './components/Exposure';
 import { Settings } from './components/Settings';
 import { Arbitrage } from './components/Arbitrage';
 import { LiveModel } from './components/LiveModel';
+import { Patterns } from './components/Patterns';
+import { Explorer } from './components/Explorer';
 import { Dashboard } from './components/Dashboard';
 import { ago } from './lib/format';
 import { useNow } from './hooks/useNow';
 import { useHotkeys } from './hooks/useHotkeys';
 import { getDataMode } from './lib/env';
+import { BUILD_ID, hardRefresh } from './pwa';
 
 type Tab =
   | 'feed'
   | 'painel'
+  | 'explorar'
   | 'arbitragem'
+  | 'padroes'
   | 'aovivo'
   | 'tracker'
   | 'exposicao'
@@ -56,7 +61,7 @@ export default function App() {
 
   // Atalhos de teclado: 1–7 troca separador, "/" foca a pesquisa do feed.
   const hotkeys = useMemo(() => {
-    const order: Tab[] = ['feed', 'painel', 'arbitragem', 'aovivo', 'tracker', 'exposicao', 'definicoes'];
+    const order: Tab[] = ['feed', 'painel', 'explorar', 'arbitragem', 'padroes', 'aovivo', 'tracker', 'exposicao', 'definicoes'];
     const map: Record<string, (e: KeyboardEvent) => void> = {
       '/': (e) => {
         setTab('feed');
@@ -89,10 +94,21 @@ export default function App() {
           </span>
         )}
         <div className="spacer" />
-        <span className="status-pill mono hide-sm" title="Atalhos: 1–7 separadores · / pesquisa">
-          ⌨ 1–7 · /
+        <span className="status-pill mono hide-sm" title="Atalhos: 1–9 separadores · / pesquisa">
+          ⌨ 1–9 · /
         </span>
         <span className="status-pill mono">{feedCount} +EV</span>
+        <span className="status-pill mono hide-sm" title={`Versão do build: ${BUILD_ID}`}>
+          v{BUILD_ID}
+        </span>
+        <button
+          className="btn ghost"
+          style={{ padding: '4px 8px' }}
+          onClick={hardRefresh}
+          title="Hard refresh: limpa cache e service worker e recarrega a última versão"
+        >
+          ⟳
+        </button>
       </header>
 
       <DataModeBanner />
@@ -105,12 +121,18 @@ export default function App() {
         <button className={`tab ${tab === 'painel' ? 'active' : ''}`} onClick={() => setTab('painel')}>
           Painel
         </button>
+        <button className={`tab ${tab === 'explorar' ? 'active' : ''}`} onClick={() => setTab('explorar')}>
+          Explorar
+        </button>
         <button
           className={`tab ${tab === 'arbitragem' ? 'active' : ''}`}
           onClick={() => setTab('arbitragem')}
         >
           Arbitragem
           {arbCount > 0 && <span className="badge">{arbCount}</span>}
+        </button>
+        <button className={`tab ${tab === 'padroes' ? 'active' : ''}`} onClick={() => setTab('padroes')}>
+          Padrões
         </button>
         <button className={`tab ${tab === 'aovivo' ? 'active' : ''}`} onClick={() => setTab('aovivo')}>
           Ao Vivo
@@ -144,7 +166,9 @@ export default function App() {
           </>
         )}
         {tab === 'painel' && <Dashboard />}
+        {tab === 'explorar' && <Explorer />}
         {tab === 'arbitragem' && <Arbitrage />}
+        {tab === 'padroes' && <Patterns />}
         {tab === 'aovivo' && <LiveModel />}
         {tab === 'tracker' && <BetTracker />}
         {tab === 'exposicao' && <Exposure />}

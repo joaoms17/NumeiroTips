@@ -26,6 +26,7 @@ import type {
   MarketSnapshot,
   TrackedBet,
   TargetBook,
+  AccountBook,
   BetResult,
 } from '../lib/types';
 import { DEFAULT_ENGINE_CONFIG, DEFAULT_FILTERS } from '../lib/types';
@@ -73,6 +74,8 @@ export interface AppState {
   connected: boolean;
   sourceName: string;
   lastTickAt: number;
+  /** Confronto escolhido nos Padrões para alimentar o modelo Ao Vivo. */
+  inplaySeed: { lambda: number; mu: number; home: string; away: string } | null;
 
   // ações
   ingestSnapshots: (snaps: MarketSnapshot[]) => void;
@@ -81,10 +84,19 @@ export interface AppState {
   setConfig: (patch: Partial<EngineConfig>) => void;
   setFilters: (patch: Partial<FeedFilters>) => void;
   setConnection: (connected: boolean, sourceName: string) => void;
+  setInplaySeed: (seed: { lambda: number; mu: number; home: string; away: string } | null) => void;
 
   placeBet: (vb: ValueBet, opts?: { stake?: number; book?: TargetBook }) => void;
   settleBet: (id: string, result: BetResult, fairClosingOdd?: number) => void;
   removeBet: (id: string) => void;
+  /** Regista uma aposta à mão (qualquer casa, ex.: Betano/Solverde). */
+  addManualBet: (b: {
+    label: string;
+    book: AccountBook;
+    stake: number;
+    odd: number;
+    fairOdd?: number;
+  }) => void;
   /** Substitui config/apostas a partir de um backup importado. */
   importState: (data: { config?: Partial<EngineConfig>; bets?: TrackedBet[] }) => void;
 }
@@ -100,15 +112,17 @@ export const useStore = create<AppState>((set, get) => ({
   connected: false,
   sourceName: '—',
   lastTickAt: 0,
+  inplaySeed: null,
+
+  setInplaySeed: (seed) => set({ inplaySeed: seed }),
 
   ingestSnapshots: (snaps) => {
     const { config, prevIndex } = get();
     const feed = evaluateFeed(snaps, config, prevIndex);
     const nextIndex = new Map(feed.map((vb) => [vb.id, vb]));
 
-    // Arbitragem (Fase 3): casas-alvo ativas + Betfair Exchange (backable).
-    const arbBooks = [...config.activeBooks, 'betfair' as const];
-    const arbs = scanArbitrage(snaps, arbBooks, config.arbMinMargin);
+    // Arbitragem (Fase 3): só entre as casas-alvo onde se aposta (Betclic/1xBet).
+    const arbs = scanArbitrage(snaps, config.activeBooks, config.arbMinMargin);
 
     // Movimento de linha: regista amostras das value bets vivas e calcula steam.
     const now = Date.now();
@@ -201,6 +215,27 @@ export const useStore = create<AppState>((set, get) => ({
 
   removeBet: (id) => {
     const bets = get().bets.filter((b) => b.id !== id);
+    set({ bets });
+    save({ config: get().config, filters: get().filters, bets });
+  },
+
+  addManualBet: ({ label, book, stake, odd, fairOdd }) => {
+    const bet: TrackedBet = {
+      id: `bet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      valueBetId: 'manual',
+      label: label.trim() || 'Aposta manual',
+      book,
+      stake,
+      odd,
+      fairOddAtBet: fairOdd ?? odd,
+      edgeAtBet: fairOdd && fairOdd > 1 ? (1 / fairOdd) * odd - 1 : 0,
+      result: 'pending',
+      pnl: null,
+      clv: null,
+      placedAt: new Date().toISOString(),
+      settledAt: null,
+    };
+    const bets = [bet, ...get().bets];
     set({ bets });
     save({ config: get().config, filters: get().filters, bets });
   },

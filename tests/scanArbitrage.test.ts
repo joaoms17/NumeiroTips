@@ -33,9 +33,9 @@ describe('scanArbitrage sobre snapshots', () => {
       betclic: [2.7, 3.2, 3.3],
       '1xbet': [2.4, 4.1, 3.9],
       pinnacle: [2.0, 3.6, 3.9], // ignorada (só régua)
-      betfair: [2.5, 3.8, 3.7],
+      betfair: [2.5, 3.8, 3.7], // ignorada (só régua, não se aposta)
     } as Record<BookId, [number, number, number]>);
-    const arbs = scanArbitrage([s], ['betclic', '1xbet', 'betfair'], 0);
+    const arbs = scanArbitrage([s], ['betclic', '1xbet'], 0);
     expect(arbs.length).toBe(1);
     expect(arbs[0].margin).toBeGreaterThan(0);
     // a melhor odd da casa é 2.7 (betclic), empate 4.1 e fora 3.9 (1xbet)
@@ -49,8 +49,7 @@ describe('scanArbitrage sobre snapshots', () => {
     const s = snap({
       betclic: [1.9, 3.3, 3.6],
       '1xbet': [1.88, 3.25, 3.55],
-      betfair: [1.95, 3.4, 3.7],
     } as Record<BookId, [number, number, number]>);
-    expect(scanArbitrage([s], ['betclic', '1xbet', 'betfair'], 0).length).toBe(0);
+    expect(scanArbitrage([s], ['betclic', '1xbet'], 0).length).toBe(0);
   });
 });
