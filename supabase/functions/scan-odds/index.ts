@@ -54,7 +54,7 @@ async function fetchTheOddsApi(): Promise<Snapshot[]> {
   const markets = Deno.env.get("THE_ODDS_API_MARKETS") ?? "h2h,totals,spreads";
   const bookmakers = Deno.env.get("THE_ODDS_API_BOOKMAKERS") ?? "pinnacle,betfair_ex_eu,betclic,onexbet";
   const leagues = (Deno.env.get("THE_ODDS_API_SPORTS") ??
-    "soccer_fifa_world_cup").split(",");
+    "soccer_fifa_world_cup,soccer_brazil_campeonato,soccer_conmebol_copa_libertadores,soccer_usa_mls,soccer_sweden_allsvenskan,soccer_norway_eliteserien").split(",");
 
   const all: Snapshot[] = [];
   for (const sk of leagues) {

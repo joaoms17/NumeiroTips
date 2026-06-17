@@ -46,18 +46,22 @@ export interface TheOddsApiConfig {
 }
 
 /**
- * Ligas a varrer por defeito.
+ * Ligas de FUTEBOL a varrer por defeito — as que estão EM ÉPOCA em junho/julho
+ * de 2026 (mais jogos = mais apostas). As europeias de clubes estão paradas até
+ * agosto; em troca há Mundial + ligas das Américas e nórdicas a decorrer.
  *
- * ⚠️ Em época (ago–mai) usa as ligas domésticas. Em junho/julho de 2026 essas
- * estão paradas e o que está a decorrer é o MUNDIAL — por isso o default agora
- * é só o Mundial (1 liga = menos créditos). Troca via env/props quando a época
- * recomeçar.
+ * ⚠️ QUOTA: cada liga custa `nº_mercados × nº_regiões` créditos por scan. Mais
+ * ligas = mais apostas MAS esgota mais depressa o tier grátis (500/mês). O
+ * travão de créditos pára o polling antes de esgotar. Em agosto acrescenta as
+ * ligas europeias (EPL, Liga Portugal, etc.).
  */
 const DEFAULT_LEAGUES = [
-  'soccer_fifa_world_cup', // ativo jun–jul 2026
-  // época doméstica (descomenta quando recomeçar, ~agosto):
-  // 'soccer_epl', 'soccer_spain_la_liga', 'soccer_italy_serie_a',
-  // 'soccer_france_ligue_one', 'soccer_germany_bundesliga', 'soccer_portugal_primeira_liga',
+  'soccer_fifa_world_cup', // Mundial
+  'soccer_brazil_campeonato', // Brasileirão Série A
+  'soccer_conmebol_copa_libertadores', // Libertadores
+  'soccer_usa_mls', // MLS
+  'soccer_sweden_allsvenskan', // Allsvenskan
+  'soccer_norway_eliteserien', // Eliteserien
 ];
 
 export class TheOddsApiProvider implements OddsProvider {
