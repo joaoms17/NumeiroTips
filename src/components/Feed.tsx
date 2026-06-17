@@ -4,9 +4,11 @@
  * mercado | seleção | odd justa sharp | odd Betclic | odd 1xBet | melhor |
  * edge% | stake Kelly | detetado há Xs | apostar.
  */
+import { Fragment, useState } from 'react';
 import { useStore, selectFilteredFeed } from '../state/store';
 import { useNow } from '../hooks/useNow';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { BetDetail } from './BetDetail';
 import { BOOK_META } from '../lib/types';
 import type { ValueBet, TargetBook } from '../lib/types';
 import type { MovementInfo } from '../state/movement';
@@ -20,6 +22,8 @@ export function Feed() {
   const placeBet = useStore((s) => s.placeBet);
   const now = useNow(1000);
   const isMobile = useMediaQuery('(max-width: 760px)');
+  const [openId, setOpenId] = useState<string | null>(null);
+  const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id));
 
   if (feed.length === 0) {
     return (
@@ -46,6 +50,8 @@ export function Feed() {
             vb={vb}
             mov={movement[vb.id]}
             now={now}
+            open={openId === vb.id}
+            onToggle={() => toggle(vb.id)}
             onPlace={() => placeBet(vb)}
           />
         ))}
@@ -73,13 +79,22 @@ export function Feed() {
         </thead>
         <tbody>
           {feed.map((vb) => (
-            <FeedRow
-              key={vb.id}
-              vb={vb}
-              mov={movement[vb.id]}
-              now={now}
-              onPlace={() => placeBet(vb)}
-            />
+            <Fragment key={vb.id}>
+              <FeedRow
+                vb={vb}
+                mov={movement[vb.id]}
+                now={now}
+                onToggle={() => toggle(vb.id)}
+                onPlace={() => placeBet(vb)}
+              />
+              {openId === vb.id && (
+                <tr className="detail-row">
+                  <td colSpan={11}>
+                    <BetDetail vb={vb} />
+                  </td>
+                </tr>
+              )}
+            </Fragment>
           ))}
         </tbody>
       </table>
@@ -91,11 +106,13 @@ function FeedRow({
   vb,
   mov,
   now,
+  onToggle,
   onPlace,
 }: {
   vb: ValueBet;
   mov?: MovementInfo;
   now: number;
+  onToggle: () => void;
   onPlace: () => void;
 }) {
   const ageSec = Math.floor((now - new Date(vb.detectedAt).getTime()) / 1000);
@@ -103,7 +120,7 @@ function FeedRow({
   const bookEdge = (book: TargetBook) => vb.books.find((b) => b.book === book);
 
   return (
-    <tr className={fresh ? 'fresh' : ''}>
+    <tr className={`clickable ${fresh ? 'fresh' : ''}`} onClick={onToggle} title="Ver detalhe e análise">
       <td className="l">
         <div className="event-cell">
           <span className="teams">
@@ -141,12 +158,7 @@ function FeedRow({
         );
       })}
       <td>
-        <span className="mono pos">
-          {BOOK_META[vb.bestBook].label}
-          <span className={`risk-tag ${BOOK_META[vb.bestBook].risk}`}>
-            {BOOK_META[vb.bestBook].risk === 'cinzenta' ? 'cinzenta' : 'SRIJ'}
-          </span>
-        </span>
+        <span className="mono pos">{BOOK_META[vb.bestBook].label}</span>
         <br />
         <span className="pos">{odd(vb.bestOdd)}</span>
       </td>
@@ -158,7 +170,7 @@ function FeedRow({
       <td className="hide-sm">
         <span className={`fresh-badge ${fresh ? 'hot' : ''}`}>{ago(vb.detectedAt, now)}</span>
       </td>
-      <td>
+      <td onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
           <a
             className="btn ghost"
@@ -195,11 +207,15 @@ function FeedCard({
   vb,
   mov,
   now,
+  open,
+  onToggle,
   onPlace,
 }: {
   vb: ValueBet;
   mov?: MovementInfo;
   now: number;
+  open: boolean;
+  onToggle: () => void;
   onPlace: () => void;
 }) {
   const ageSec = Math.floor((now - new Date(vb.detectedAt).getTime()) / 1000);
@@ -207,8 +223,8 @@ function FeedCard({
   const meta = BOOK_META[vb.bestBook];
 
   return (
-    <div className={`vb-card ${fresh ? 'fresh' : ''}`}>
-      <div className="vb-card-top">
+    <div className={`vb-card ${fresh ? 'fresh' : ''} ${open ? 'open' : ''}`}>
+      <div className="vb-card-top" onClick={onToggle} style={{ cursor: 'pointer' }}>
         <div className="vb-card-event">
           <span className="market-chip">{marketLabel(vb.selection.market)}</span>
           <span className="teams">
@@ -250,7 +266,6 @@ function FeedCard({
       <div className="vb-card-foot">
         <span className="muted mono">
           Melhor <span className="pos">{meta.label} @ {odd(vb.bestOdd)}</span>
-          <span className={`risk-tag ${meta.risk}`}>{meta.risk === 'cinzenta' ? 'cinzenta' : 'SRIJ'}</span>
         </span>
         <span className="muted mono">Stake {eur(vb.stake)}</span>
       </div>
@@ -259,20 +274,16 @@ function FeedCard({
           <MovementCell mov={mov} /> · <span className={fresh ? 'pos' : 'muted'}>{ago(vb.detectedAt, now)}</span>
         </span>
         <div style={{ display: 'flex', gap: 6 }}>
-          <a
-            className="btn ghost"
-            href={vb.books.find((b) => b.book === vb.bestBook)?.deepLink ?? '#'}
-            target="_blank"
-            rel="noreferrer"
-            title="Abrir boletim"
-          >
-            ↗
-          </a>
+          <button className="btn ghost" onClick={onToggle} title="Detalhe e análise">
+            {open ? '▲' : 'análise ▾'}
+          </button>
           <button className="btn primary" onClick={onPlace}>
             Apostar
           </button>
         </div>
       </div>
+
+      {open && <BetDetail vb={vb} />}
     </div>
   );
 }

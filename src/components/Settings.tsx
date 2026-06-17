@@ -1,12 +1,57 @@
 /**
  * Definições do motor + alertas + jogo responsável.
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import { useAlerts, requestNotificationPermission } from '../hooks/useAlerts';
-import type { SharpBook, TargetBook } from '../lib/types';
+import type { TargetBook } from '../lib/types';
 import { pct } from '../lib/format';
 import { BUILD_ID, hardRefresh } from '../pwa';
+import { downloadBackup, parseBackup } from '../lib/backup';
+
+function BackupPanel() {
+  const bets = useStore((s) => s.bets);
+  const config = useStore((s) => s.config);
+  const importState = useStore((s) => s.importState);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const onImport = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        importState(parseBackup(String(reader.result)));
+        alert('Backup importado.');
+      } catch (e) {
+        alert(`Importação falhou: ${(e as Error).message}`);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <div className="panel" style={{ marginTop: 12 }}>
+      <div className="panel-h">Dados (backup)</div>
+      <div style={{ padding: 14, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className="btn" onClick={() => downloadBackup(config, bets)}>⬇ Exportar (JSON)</button>
+        <button className="btn" onClick={() => fileRef.current?.click()}>⬆ Importar</button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onImport(f);
+            e.target.value = '';
+          }}
+        />
+        <span className="muted" style={{ fontSize: 12 }}>
+          As apostas e definições vivem só neste browser. Exporta de vez em quando.
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export function Settings() {
   const config = useStore((s) => s.config);
@@ -51,28 +96,6 @@ export function Settings() {
             />
           </Field>
 
-          <Field label="Método de de-vig">
-            <select
-              value={config.devigMethod}
-              onChange={(e) =>
-                setConfig({ devigMethod: e.target.value as 'shin' | 'proportional' })
-              }
-            >
-              <option value="shin">Shin (recomendado)</option>
-              <option value="proportional">Proporcional (fallback)</option>
-            </select>
-          </Field>
-
-          <Field label="Régua sharp">
-            <select
-              value={config.sharpSource}
-              onChange={(e) => setConfig({ sharpSource: e.target.value as SharpBook })}
-            >
-              <option value="pinnacle">Pinnacle</option>
-              <option value="betfair">Betfair Exchange</option>
-            </select>
-          </Field>
-
           <Field label={`Fração de Kelly · ${pct(config.kellyFraction, 0)}`}>
             <input
               type="range"
@@ -81,17 +104,6 @@ export function Settings() {
               step={0.05}
               value={config.kellyFraction}
               onChange={(e) => setConfig({ kellyFraction: Number(e.target.value) })}
-            />
-          </Field>
-
-          <Field label={`Teto de stake · ${pct(config.stakeCap, 1)} da banca`}>
-            <input
-              type="range"
-              min={0.01}
-              max={0.1}
-              step={0.005}
-              value={config.stakeCap}
-              onChange={(e) => setConfig({ stakeCap: Number(e.target.value) })}
             />
           </Field>
 
@@ -171,6 +183,8 @@ export function Settings() {
         </div>
       </div>
     </div>
+
+    <BackupPanel />
 
     <div className="panel" style={{ marginTop: 12 }}>
       <div className="panel-h">Versão</div>

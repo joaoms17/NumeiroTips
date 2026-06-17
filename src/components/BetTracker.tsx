@@ -42,7 +42,6 @@ function ManualBetForm() {
             {ACCOUNT_BOOKS.map((b) => (
               <option key={b} value={b}>
                 {ACCOUNT_BOOK_META[b].label}
-                {ACCOUNT_BOOK_META[b].risk === 'cinzenta' ? ' (cinzenta)' : ''}
               </option>
             ))}
           </select>
