@@ -58,6 +58,22 @@ export function localAnalysis(a: GameAnalysis, stats: MatchupStats | null): stri
   const fav =
     p.favorite === 'home' ? a.event.home : p.favorite === 'away' ? a.event.away : 'o empate';
   const parts: string[] = [];
+
+  // Top 3 apostas (a partir do melhor valor disponível na app)
+  parts.push('### 🎯 Top 3 apostas para o jogo');
+  const top3 = a.topBets.slice(0, 3);
+  if (top3.length === 0) {
+    parts.push('Sem valor positivo claro nos mercados disponíveis. Liga a IA (GEMINI_API_KEY) para sugestões de mais mercados.');
+  } else {
+    top3.forEach((b, i) => {
+      parts.push(
+        `${i + 1}. **${b.marketLabel} — ${b.label}** @ ${fmtOdd(b.bestOdd)} (${b.bestBook?.toUpperCase()}) ` +
+          `— edge ${signedPct(b.bestEdge)}, fiabilidade ${b.reliability}${b.suspicious ? ' ⚠' : ''}.`,
+      );
+    });
+  }
+  parts.push('');
+
   parts.push(
     `${a.event.home} vs ${a.event.away}: ${fav} ${p.balance === 'jogo equilibrado' ? '— jogo equilibrado' : `é ${p.balance}`} ` +
       `(${a.event.home} ${pct(p.homeProb, 0)} · X ${pct(p.drawProb, 0)} · ${a.event.away} ${pct(p.awayProb, 0)}).`,
@@ -72,16 +88,6 @@ export function localAnalysis(a: GameAnalysis, stats: MatchupStats | null): stri
       `Forma: ${stats.home.team} ${stats.home.form.join('')} (${stats.home.gfAvg}/${stats.home.gaAvg} golos), ` +
         `${stats.away.team} ${stats.away.form.join('')} (${stats.away.gfAvg}/${stats.away.gaAvg}).`,
     );
-  }
-  if (a.topBets.length > 0) {
-    const t = a.topBets[0];
-    parts.push(
-      `Melhor valor: ${t.marketLabel} — ${t.label} (${t.bestBook?.toUpperCase()} @ ${fmtOdd(t.bestOdd)}, edge ${signedPct(t.bestEdge)}). ` +
-        `Paga acima do justo (${fmtOdd(t.fairOdd)}).`,
-    );
-    if (t.books.length < 2) parts.push('⚠ Confiança baixa: só uma casa a cotar, sem corroboração.');
-  } else {
-    parts.push('Sem valor positivo claro neste jogo de momento.');
   }
   parts.push('Edges pequenos exigem volume. Aposta com responsabilidade.');
   return parts.join('\n\n');
@@ -170,12 +176,22 @@ export function buildPrompt(a: GameAnalysis, stats: MatchupStats | null): string
   );
 
   L.push('');
-  L.push('## O que quero de ti (responde com estas secções)');
-  L.push('1) **Leitura do jogo** — favorito, equilíbrio, golos esperados (probabilidades + forma + h2h + o que leste na net).');
-  L.push('2) **Notícias/contexto** — lesões, onze, motivação e o que os tipsters dizem.');
-  L.push('3) **Onde está o valor** — as 1-2 apostas com melhor valor REAL (cruza edge × fiabilidade × stats × contexto). Justifica.');
-  L.push('4) **A evitar** — apostas suspeitas / fiabilidade baixa / contra a forma ou notícias.');
-  L.push('5) **Veredicto** — 1 frase + nível de confiança (alto/médio/baixo).');
+  L.push('## O que quero de ti');
+  L.push('COMEÇA SEMPRE com esta secção, é o mais importante:');
+  L.push('');
+  L.push('### 🎯 Top 3 apostas para o jogo');
+  L.push(
+    'As 3 melhores apostas, de QUALQUER mercado (1X2, dupla hipótese, golos over/under, ambas marcam, ' +
+      'handicap, cantos, cartões, marcador, resultado exato, etc.) — não te limites aos mercados da app. ' +
+      'Para cada uma: **aposta** — odd aproximada (se souberes) — 1 linha de porquê — confiança (alta/média/baixa). ' +
+      'Ordena da mais forte para a mais fraca. Se houver +EV fiável nos dados, dá-lhe prioridade; senão usa a tua leitura + a net.',
+  );
+  L.push('');
+  L.push('Depois disso:');
+  L.push('- **Leitura do jogo** (probabilidades + forma + h2h + net).');
+  L.push('- **Notícias/contexto** (lesões, onze, motivação, o que dizem os tipsters).');
+  L.push('- **A evitar** (suspeitas / fiabilidade baixa / contra a forma ou notícias).');
+  L.push('- **Veredicto** (1 frase + confiança global).');
   L.push('Sê específico e fundamentado; não inventes dados. Termina com nota curta de jogo responsável.');
 
   return L.join('\n');
