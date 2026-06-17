@@ -120,6 +120,11 @@ export function BetDetail({ vb }: { vb: ValueBet }) {
       <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
         <div>
           <div className="detail-title">Matemática</div>
+          <DetRow
+            k="Fiabilidade"
+            v={`${vb.reliability}${vb.suspicious ? ' ⚠ suspeita' : ''} · ${vb.fair.sharps} sharp${vb.fair.sharps > 1 ? 's' : ''}`}
+            cls={vb.suspicious || vb.reliability === 'baixa' ? 'neg' : vb.reliability === 'alta' ? 'pos' : 'neu'}
+          />
           <DetRow k="Prob. justa (sharp)" v={prob(vb.fair.prob)} />
           <DetRow k="Odd justa" v={fmtOdd(vb.fair.fairOdd)} />
           {vb.books.map((b) => (

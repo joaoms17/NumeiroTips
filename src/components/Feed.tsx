@@ -162,7 +162,13 @@ function FeedRow({
         <br />
         <span className="pos">{odd(vb.bestOdd)}</span>
       </td>
-      <td className="edge-cell pos">{signedPct(vb.bestEdge)}</td>
+      <td className={`edge-cell ${vb.bestEdge >= 0 ? 'pos' : 'neg'}`}>
+        {vb.suspicious && <span title="edge suspeito (provável erro de odd)">⚠ </span>}
+        {vb.reliability === 'baixa' && !vb.suspicious && (
+          <span className="muted" title="baixa fiabilidade (1 sharp / sharps a divergir)">◦ </span>
+        )}
+        {signedPct(vb.bestEdge)}
+      </td>
       <td className="hide-sm">{eur(vb.stake)}</td>
       <td className="hide-sm">
         <MovementCell mov={mov} />
@@ -234,7 +240,10 @@ function FeedCard({
             {vb.event.league} · {shortTime(vb.event.startsAt)}
           </span>
         </div>
-        <div className="vb-card-edge pos">{signedPct(vb.bestEdge)}</div>
+        <div className={`vb-card-edge ${vb.bestEdge >= 0 ? 'pos' : 'neg'}`}>
+          {vb.suspicious && '⚠ '}
+          {signedPct(vb.bestEdge)}
+        </div>
       </div>
 
       <div className="vb-card-sel">{vb.selection.label}</div>

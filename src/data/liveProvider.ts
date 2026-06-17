@@ -83,6 +83,8 @@ export function mapValueBetRow(row: ValueBetRow): ValueBet {
       fairOdd: row.odd_justa,
       method: meta.fair_method ?? 'shin',
       source: meta.sharp_source ?? 'pinnacle',
+      sharps: 1,
+      divergence: 0,
       computedAt: row.atualizado_em,
     },
     books: books.sort((a, b) => b.edge - a.edge),
@@ -93,6 +95,8 @@ export function mapValueBetRow(row: ValueBetRow): ValueBet {
     stake: row.stake,
     detectedAt: row.detetado_em,
     updatedAt: row.atualizado_em,
+    reliability: 'média',
+    suspicious: false,
   };
 }
 

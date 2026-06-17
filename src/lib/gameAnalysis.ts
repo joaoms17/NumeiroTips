@@ -3,7 +3,7 @@
  * preços justos (de-vig da régua sharp) e o edge de cada casa-alvo, e devolve
  * as melhores apostas (+EV) ordenadas. Base para a página de Análise.
  */
-import { computeFairPrices } from '../engine/engine';
+import { computeConsensusFair } from '../engine/engine';
 import { expectedValue } from './math/ev';
 import { marketLabel } from './format';
 import type { MarketSnapshot, EngineConfig, SportEvent, TargetBook, BookId } from './types';
@@ -141,7 +141,7 @@ export function analyzeGame(
   const markets = new Set<string>();
 
   for (const snap of snaps) {
-    const fairs = computeFairPrices(snap, config.sharpSource, config.devigMethod);
+    const fairs = computeConsensusFair(snap, config.sharpSource, config.devigMethod);
     if (!fairs) continue;
     markets.add(snap.market);
     const fairBySel = new Map(fairs.map((f) => [f.selectionId, f]));

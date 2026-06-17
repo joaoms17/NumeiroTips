@@ -112,6 +112,19 @@ export function Filters() {
           <option value={48}>Próximas 48h</option>
         </select>
       </div>
+
+      <div className="field">
+        <label>&nbsp;</label>
+        <label className="switch" title="Esconder 1-sharp, sharps a divergir e edges suspeitos">
+          <input
+            type="checkbox"
+            checked={filters.onlyReliable}
+            onChange={(e) => setFilters({ onlyReliable: e.target.checked })}
+          />
+          <span className="track" />
+          <span style={{ fontSize: 12 }}>Só fiáveis</span>
+        </label>
+      </div>
     </div>
   );
 }
