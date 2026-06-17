@@ -198,6 +198,10 @@ export interface FeedFilters {
   market: MarketType | 'all';
   minEdge: number;
   minOdd: number;
+  /** Odd máxima (0 = sem limite). */
+  maxOdd: number;
+  /** Só jogos a começar nas próximas X horas (0 = qualquer altura). */
+  withinHours: number;
   book: TargetBook | 'all';
   search: string;
 }
@@ -206,6 +210,8 @@ export const DEFAULT_FILTERS: FeedFilters = {
   market: 'all',
   minEdge: 0.02,
   minOdd: 1.0,
+  maxOdd: 0,
+  withinHours: 0,
   book: 'all',
   search: '',
 };

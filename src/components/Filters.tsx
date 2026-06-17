@@ -76,8 +76,38 @@ export function Filters() {
           step={0.1}
           value={filters.minOdd}
           onChange={(e) => setFilters({ minOdd: Number(e.target.value) || 1 })}
-          style={{ width: 80 }}
+          style={{ width: 72 }}
         />
+      </div>
+
+      <div className="field">
+        <label htmlFor="f-oddmax">Odd máx</label>
+        <input
+          id="f-oddmax"
+          type="number"
+          min={0}
+          step={0.5}
+          placeholder="sem limite"
+          value={filters.maxOdd || ''}
+          onChange={(e) => setFilters({ maxOdd: Number(e.target.value) || 0 })}
+          style={{ width: 84 }}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor="f-window">Janela</label>
+        <select
+          id="f-window"
+          value={filters.withinHours}
+          onChange={(e) => setFilters({ withinHours: Number(e.target.value) })}
+        >
+          <option value={0}>Qualquer altura</option>
+          <option value={3}>Próximas 3h</option>
+          <option value={6}>Próximas 6h</option>
+          <option value={12}>Próximas 12h</option>
+          <option value={24}>Próximas 24h</option>
+          <option value={48}>Próximas 48h</option>
+        </select>
       </div>
     </div>
   );

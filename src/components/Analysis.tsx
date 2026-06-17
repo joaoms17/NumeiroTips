@@ -150,6 +150,11 @@ function GameView({ a }: { a: GameAnalysis }) {
           <span className="val mono">{stats.h2h.homeWins}V {stats.h2h.draws}E {stats.h2h.awayWins}D · {stats.h2h.avgGoals} golos</span>
         </div>
       )}
+      {stats && stats.remaining === 0 && (
+        <div className="note danger" style={{ marginTop: 6 }}>
+          Quota diária da API-Football esgotada (100/dia) — reseta às 00:00 UTC.
+        </div>
+      )}
 
       <div className="section-title">Visão AI 🤖</div>
       <div className="panel">

@@ -65,10 +65,16 @@ function LiveStats({ vb }: { vb: ValueBet }) {
           </span>
         </div>
       )}
-      {stats.remaining != null && (
-        <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
-          {stats.remaining} pedidos restantes hoje (API-Football)
+      {stats.remaining === 0 ? (
+        <div className="note danger" style={{ marginTop: 6 }}>
+          Quota diária da API-Football esgotada (100/dia) — reseta às 00:00 UTC.
         </div>
+      ) : (
+        stats.remaining != null && (
+          <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+            {stats.remaining} pedidos restantes hoje (API-Football)
+          </div>
+        )
       )}
       {err && <div className="neg" style={{ fontSize: 12 }}>{err}</div>}
     </div>

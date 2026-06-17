@@ -3,8 +3,6 @@ import { useOddsFeed } from './hooks/useOddsFeed';
 import { useStore, selectFilteredFeed } from './state/store';
 import { Feed } from './components/Feed';
 import { Filters } from './components/Filters';
-import { BetTracker } from './components/BetTracker';
-import { Exposure } from './components/Exposure';
 import { Settings } from './components/Settings';
 import { Arbitrage } from './components/Arbitrage';
 import { Analysis } from './components/Analysis';
@@ -14,7 +12,7 @@ import { useHotkeys } from './hooks/useHotkeys';
 import { getDataMode } from './lib/env';
 import { BUILD_ID, hardRefresh } from './pwa';
 
-type Tab = 'feed' | 'analise' | 'arbitragem' | 'tracker' | 'exposicao' | 'definicoes';
+type Tab = 'feed' | 'analise' | 'arbitragem' | 'definicoes';
 
 function DataModeBanner() {
   const mode = getDataMode();
@@ -44,12 +42,11 @@ export default function App() {
   const lastTickAt = useStore((s) => s.lastTickAt);
   const feedCount = useStore((s) => selectFilteredFeed(s).length);
   const arbCount = useStore((s) => s.arbs.length);
-  const pendingCount = useStore((s) => s.bets.filter((b) => b.result === 'pending').length);
   const now = useNow(1000);
 
   // Atalhos de teclado: 1–7 troca separador, "/" foca a pesquisa do feed.
   const hotkeys = useMemo(() => {
-    const order: Tab[] = ['feed', 'analise', 'arbitragem', 'tracker', 'exposicao', 'definicoes'];
+    const order: Tab[] = ['feed', 'analise', 'arbitragem', 'definicoes'];
     const map: Record<string, (e: KeyboardEvent) => void> = {
       '/': (e) => {
         setTab('feed');
@@ -82,8 +79,8 @@ export default function App() {
           </span>
         )}
         <div className="spacer" />
-        <span className="status-pill mono hide-sm" title="Atalhos: 1–6 separadores · / pesquisa">
-          ⌨ 1–6 · /
+        <span className="status-pill mono hide-sm" title="Atalhos: 1–4 separadores · / pesquisa">
+          ⌨ 1–4 · /
         </span>
         <span className="status-pill mono hide-sm">{feedCount} +EV</span>
         <span className="status-pill mono hide-sm" title={`Versão do build: ${BUILD_ID}`}>
@@ -116,19 +113,6 @@ export default function App() {
           {arbCount > 0 && <span className="badge">{arbCount}</span>}
         </button>
         <button
-          className={`tab ${tab === 'tracker' ? 'active' : ''}`}
-          onClick={() => setTab('tracker')}
-        >
-          Tracker
-          {pendingCount > 0 && <span className="badge">{pendingCount}</span>}
-        </button>
-        <button
-          className={`tab ${tab === 'exposicao' ? 'active' : ''}`}
-          onClick={() => setTab('exposicao')}
-        >
-          Exposição
-        </button>
-        <button
           className={`tab ${tab === 'definicoes' ? 'active' : ''}`}
           onClick={() => setTab('definicoes')}
         >
@@ -145,8 +129,6 @@ export default function App() {
         )}
         {tab === 'analise' && <Analysis />}
         {tab === 'arbitragem' && <Arbitrage />}
-        {tab === 'tracker' && <BetTracker />}
-        {tab === 'exposicao' && <Exposure />}
         {tab === 'definicoes' && <Settings />}
       </main>
     </div>

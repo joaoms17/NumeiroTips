@@ -89,9 +89,32 @@ async function af<T>(path: string): Promise<{ data: T[]; remaining: number | nul
   const res = await fetch(url, { headers });
   const remaining = num(res.headers.get('x-ratelimit-requests-remaining'));
   if (remaining != null) lastRemaining = remaining;
+  if (res.status === 429) throw new QuotaError();
   if (!res.ok) throw new Error(`API-Football HTTP ${res.status}`);
   const json = (await res.json()) as { response?: T[]; errors?: unknown };
+  // a API devolve 200 com `errors` (ex.: limite diário atingido)
+  const errs = json.errors;
+  const errMsg =
+    errs && typeof errs === 'object'
+      ? Object.values(errs as Record<string, string>).filter(Boolean).join('; ')
+      : '';
+  if (errMsg) {
+    if (/limit|requests/i.test(errMsg)) throw new QuotaError();
+    throw new Error(errMsg);
+  }
   return { data: json.response ?? [], remaining };
+}
+
+export class QuotaError extends Error {
+  constructor() {
+    super('Quota diária da API-Football esgotada (100/dia, reseta às 00:00 UTC).');
+    this.name = 'QuotaError';
+  }
+}
+
+/** Pedidos restantes hoje (do último request), ou null. */
+export function apiFootballRemaining(): number | null {
+  return lastRemaining;
 }
 
 function num(v: string | null): number | null {
@@ -172,6 +195,9 @@ async function teamTrends(name: string, n = 10): Promise<LiveTeamTrends | null> 
   if (cached) return cached;
   const { data } = await af<AFFixture>(`/fixtures?team=${id}&last=${n}`);
   const t = trendsFrom(name, id, data);
+  // Sem jogos (ex.: quota esgotada devolve []) → null e NÃO cacheia, senão
+  // ficava preso em "sem dados" mesmo depois do reset diário.
+  if (t.played === 0) return null;
   cacheSet(key, t, STAT_TTL);
   return t;
 }
@@ -204,7 +230,7 @@ async function h2h(id1: number, id2: number, n = 10): Promise<H2HSummary | null>
     avgGoals: done.length ? round2(g / done.length) : 0,
     results,
   };
-  cacheSet(key, sum, STAT_TTL);
+  if (sum.played > 0) cacheSet(key, sum, STAT_TTL);
   return sum;
 }
 
