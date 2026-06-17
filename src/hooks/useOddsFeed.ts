@@ -32,7 +32,7 @@ export function useOddsFeed() {
       const provider = new TheOddsApiProvider({
         apiKey: env.theOddsApiKey!,
         onQuota: (remaining) =>
-          setConnection(true, `The Odds API${remaining != null ? ` · ${remaining} créditos` : ''}`),
+          setConnection(true, `The Odds API${remaining != null ? ` · ${remaining}cr` : ''}`),
       });
       setConnection(true, provider.name);
       cleanup = provider.subscribe((snaps) => ingest(snaps));

@@ -74,8 +74,6 @@ export interface AppState {
   connected: boolean;
   sourceName: string;
   lastTickAt: number;
-  /** Confronto escolhido nos Padrões para alimentar o modelo Ao Vivo. */
-  inplaySeed: { lambda: number; mu: number; home: string; away: string } | null;
 
   // ações
   ingestSnapshots: (snaps: MarketSnapshot[]) => void;
@@ -84,7 +82,6 @@ export interface AppState {
   setConfig: (patch: Partial<EngineConfig>) => void;
   setFilters: (patch: Partial<FeedFilters>) => void;
   setConnection: (connected: boolean, sourceName: string) => void;
-  setInplaySeed: (seed: { lambda: number; mu: number; home: string; away: string } | null) => void;
 
   placeBet: (vb: ValueBet, opts?: { stake?: number; book?: TargetBook }) => void;
   settleBet: (id: string, result: BetResult, fairClosingOdd?: number) => void;
@@ -112,9 +109,6 @@ export const useStore = create<AppState>((set, get) => ({
   connected: false,
   sourceName: '—',
   lastTickAt: 0,
-  inplaySeed: null,
-
-  setInplaySeed: (seed) => set({ inplaySeed: seed }),
 
   ingestSnapshots: (snaps) => {
     const { config, prevIndex } = get();

@@ -20,7 +20,7 @@ export type BookRisk = 'licenciada' | 'cinzenta';
 
 export const BOOK_META: Record<TargetBook, { label: string; risk: BookRisk; color: string }> = {
   betclic: { label: 'Betclic', risk: 'licenciada', color: '#1e90ff' },
-  '1xbet': { label: '1xBet', risk: 'cinzenta', color: '#d9a441' },
+  '1xbet': { label: '1xBet', risk: 'licenciada', color: '#d9a441' },
 };
 
 /**
@@ -41,7 +41,12 @@ export type AccountBook =
   | 'nossa_aposta'
   | 'moosh'
   | 'casino_portugal'
-  | 'leovegas';
+  | 'leovegas'
+  | 'bwin'
+  | 'lebull'
+  | 'luckia'
+  | 'betway'
+  | 'betplay';
 
 export const ACCOUNT_BOOK_META: Record<AccountBook, { label: string; risk: BookRisk }> = {
   betclic: { label: 'Betclic', risk: 'licenciada' },
@@ -54,7 +59,12 @@ export const ACCOUNT_BOOK_META: Record<AccountBook, { label: string; risk: BookR
   moosh: { label: 'Moosh', risk: 'licenciada' },
   casino_portugal: { label: 'Casino Portugal', risk: 'licenciada' },
   leovegas: { label: 'LeoVegas', risk: 'licenciada' },
-  '1xbet': { label: '1xBet', risk: 'cinzenta' },
+  bwin: { label: 'Bwin', risk: 'licenciada' },
+  lebull: { label: 'LeBull', risk: 'licenciada' },
+  luckia: { label: 'Luckia', risk: 'licenciada' },
+  betway: { label: 'Betway', risk: 'licenciada' },
+  betplay: { label: 'Betplay (Betpt)', risk: 'licenciada' },
+  '1xbet': { label: '1xBet', risk: 'licenciada' },
 };
 
 export const ACCOUNT_BOOKS = Object.keys(ACCOUNT_BOOK_META) as AccountBook[];

@@ -106,7 +106,6 @@ function ArbCard({ arb, total }: { arb: ArbOpportunity; total: number }) {
                   <td className="l sel-cell">{leg.label}</td>
                   <td>
                     <span className="mono">{BOOK_LABEL[leg.book] ?? leg.book}</span>
-                    {leg.book === '1xbet' && <span className="risk-tag cinzenta">cinzenta</span>}
                   </td>
                   <td className="mono">{fmtOdd(leg.odd)}</td>
                   <td className="mono">{eur(stake)}</td>

@@ -7,26 +7,13 @@ import { BetTracker } from './components/BetTracker';
 import { Exposure } from './components/Exposure';
 import { Settings } from './components/Settings';
 import { Arbitrage } from './components/Arbitrage';
-import { LiveModel } from './components/LiveModel';
-import { Patterns } from './components/Patterns';
-import { Explorer } from './components/Explorer';
-import { Dashboard } from './components/Dashboard';
 import { ago } from './lib/format';
 import { useNow } from './hooks/useNow';
 import { useHotkeys } from './hooks/useHotkeys';
 import { getDataMode } from './lib/env';
 import { BUILD_ID, hardRefresh } from './pwa';
 
-type Tab =
-  | 'feed'
-  | 'painel'
-  | 'explorar'
-  | 'arbitragem'
-  | 'padroes'
-  | 'aovivo'
-  | 'tracker'
-  | 'exposicao'
-  | 'definicoes';
+type Tab = 'feed' | 'arbitragem' | 'tracker' | 'exposicao' | 'definicoes';
 
 function DataModeBanner() {
   const mode = getDataMode();
@@ -61,7 +48,7 @@ export default function App() {
 
   // Atalhos de teclado: 1–7 troca separador, "/" foca a pesquisa do feed.
   const hotkeys = useMemo(() => {
-    const order: Tab[] = ['feed', 'painel', 'explorar', 'arbitragem', 'padroes', 'aovivo', 'tracker', 'exposicao', 'definicoes'];
+    const order: Tab[] = ['feed', 'arbitragem', 'tracker', 'exposicao', 'definicoes'];
     const map: Record<string, (e: KeyboardEvent) => void> = {
       '/': (e) => {
         setTab('feed');
@@ -82,28 +69,27 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <span className="logo">▲ NumeiroTips</span>
-          <span className="tag">+EV terminal</span>
+          <span className="tag hide-sm">+EV terminal</span>
         </div>
-        <span className={`status-pill`}>
+        <span className="status-pill source-pill" title={connected ? sourceName : 'desligado'}>
           <span className={`dot ${connected ? 'live' : ''}`} />
-          {connected ? sourceName : 'desligado'}
+          <span className="source-name">{connected ? sourceName : 'desligado'}</span>
         </span>
         {lastTickAt > 0 && (
-          <span className="status-pill mono" title="Última atualização de odds">
+          <span className="status-pill mono hide-sm" title="Última atualização de odds">
             tick {ago(new Date(lastTickAt).toISOString(), now)}
           </span>
         )}
         <div className="spacer" />
-        <span className="status-pill mono hide-sm" title="Atalhos: 1–9 separadores · / pesquisa">
-          ⌨ 1–9 · /
+        <span className="status-pill mono hide-sm" title="Atalhos: 1–5 separadores · / pesquisa">
+          ⌨ 1–5 · /
         </span>
-        <span className="status-pill mono">{feedCount} +EV</span>
+        <span className="status-pill mono hide-sm">{feedCount} +EV</span>
         <span className="status-pill mono hide-sm" title={`Versão do build: ${BUILD_ID}`}>
           v{BUILD_ID}
         </span>
         <button
-          className="btn ghost"
-          style={{ padding: '4px 8px' }}
+          className="btn ghost refresh-btn"
           onClick={hardRefresh}
           title="Hard refresh: limpa cache e service worker e recarrega a última versão"
         >
@@ -118,24 +104,12 @@ export default function App() {
           Feed
           {feedCount > 0 && <span className="badge">{feedCount}</span>}
         </button>
-        <button className={`tab ${tab === 'painel' ? 'active' : ''}`} onClick={() => setTab('painel')}>
-          Painel
-        </button>
-        <button className={`tab ${tab === 'explorar' ? 'active' : ''}`} onClick={() => setTab('explorar')}>
-          Explorar
-        </button>
         <button
           className={`tab ${tab === 'arbitragem' ? 'active' : ''}`}
           onClick={() => setTab('arbitragem')}
         >
           Arbitragem
           {arbCount > 0 && <span className="badge">{arbCount}</span>}
-        </button>
-        <button className={`tab ${tab === 'padroes' ? 'active' : ''}`} onClick={() => setTab('padroes')}>
-          Padrões
-        </button>
-        <button className={`tab ${tab === 'aovivo' ? 'active' : ''}`} onClick={() => setTab('aovivo')}>
-          Ao Vivo
         </button>
         <button
           className={`tab ${tab === 'tracker' ? 'active' : ''}`}
@@ -165,11 +139,7 @@ export default function App() {
             <Feed />
           </>
         )}
-        {tab === 'painel' && <Dashboard />}
-        {tab === 'explorar' && <Explorer />}
         {tab === 'arbitragem' && <Arbitrage />}
-        {tab === 'padroes' && <Patterns />}
-        {tab === 'aovivo' && <LiveModel />}
         {tab === 'tracker' && <BetTracker />}
         {tab === 'exposicao' && <Exposure />}
         {tab === 'definicoes' && <Settings />}
