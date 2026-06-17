@@ -53,10 +53,18 @@ function LiveStats({ vb }: { vb: ValueBet }) {
 
   return (
     <div>
-      <div className="grid-2" style={{ gap: 8 }}>
-        <TeamTrendBox t={stats.home} fallback={vb.event.home} />
-        <TeamTrendBox t={stats.away} fallback={vb.event.away} />
-      </div>
+      {!stats.home && !stats.away ? (
+        <div className="muted" style={{ fontSize: 12 }}>
+          {stats.remaining === 0
+            ? 'Sem stats: quota da API-Football esgotada hoje (reseta 00:00 UTC).'
+            : 'Sem stats disponíveis para estas equipas.'}
+        </div>
+      ) : (
+        <div className="grid-2" style={{ gap: 8 }}>
+          {stats.home && <TeamTrendBox t={stats.home} fallback={vb.event.home} />}
+          {stats.away && <TeamTrendBox t={stats.away} fallback={vb.event.away} />}
+        </div>
+      )}
       {stats.h2h && stats.h2h.played > 0 && (
         <div className="calc-row" style={{ marginTop: 6 }}>
           <span className="lbl">Head-to-head ({stats.h2h.played})</span>
