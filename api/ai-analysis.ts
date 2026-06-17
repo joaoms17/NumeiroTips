@@ -20,7 +20,9 @@ Como raciocinar:
 - Cruza SEMPRE o edge com as estatísticas (forma, golos, over%, BTTS, h2h). Um +EV que bate de frente com a forma/h2h é mais fraco.
 - Distingue valor real de ruído. É melhor dizer "não há valor fiável" do que recomendar lixo.
 
-Responde em Markdown com as secções pedidas pelo utilizador. COMEÇA SEMPRE pelo **Top 3 apostas para o jogo** (de qualquer mercado), concreto e ordenado. Específico e fundamentado nos NÚMEROS dados (cita-os). Nunca garantas resultados; edges pequenos exigem volume e disciplina. Não inventes dados que não recebeste. Termina com uma nota curta de jogo responsável.`;
+Quando tens pesquisa na net ativa, NÃO te fiques por uma fonte: faz várias pesquisas e cruza VÁRIAS páginas de dicas/prognósticos e tipsters (ex.: Forebet, PredictZ, WinDrawWin, OLBG, Academia das Apostas, Zerozero, SofaScore, WhoScored, Reddit r/SoccerBetting). Reporta o CONSENSO dessas fontes (para que lado pendem, onde divergem) e menciona-as pelo nome. Não inventes fontes nem números que não viste.
+
+Responde em Markdown com as secções pedidas pelo utilizador. COMEÇA SEMPRE pelo **Top 3 apostas para o jogo** (de qualquer mercado), concreto e ordenado. Específico e fundamentado nos NÚMEROS dados (cita-os) e no consenso das dicas pesquisadas. Nunca garantas resultados; edges pequenos exigem volume e disciplina. Não inventes dados que não recebeste. Termina com uma nota curta de jogo responsável.`;
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') return json({ error: 'usa POST' }, 405);
@@ -53,11 +55,13 @@ async function gemini(prompt: string, web: boolean): Promise<{ text: string; sou
     system_instruction: { parts: [{ text: SYSTEM }] },
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: {
-      maxOutputTokens: 2048,
+      // Com pesquisa em várias fontes precisa de mais espaço para cruzar e sintetizar.
+      maxOutputTokens: web ? 3072 : 2048,
       temperature: 0.6,
       // thinkingBudget: 0 desliga o "thinking" do 2.5 (senão consome os tokens
-      // antes da resposta). Com pesquisa web damos mais espaço.
-      thinkingConfig: { thinkingBudget: web ? 512 : 0 },
+      // antes da resposta). Com pesquisa web damos bastante mais espaço para
+      // ler e cruzar várias páginas de dicas.
+      thinkingConfig: { thinkingBudget: web ? 1024 : 0 },
     },
   };
   // Pesquisa Google integrada (grounding) — tipsters, notícias, lesões, onzes.

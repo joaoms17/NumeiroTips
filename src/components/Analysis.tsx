@@ -211,7 +211,7 @@ function GameView({ a }: { a: GameAnalysis }) {
         <div style={{ padding: 14 }}>
           {!ai && (
             <button className="btn primary" onClick={runAI} disabled={aiLoading}>
-              {aiLoading ? 'A pesquisar e analisar…' : 'Analisar jogo (tipsters + notícias)'}
+              {aiLoading ? 'A cruzar tipsters e notícias…' : 'Analisar jogo (cruza várias dicas + notícias)'}
             </button>
           )}
           {aiErr && (
