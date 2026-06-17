@@ -20,7 +20,7 @@ Como raciocinar:
 - Cruza SEMPRE o edge com as estatísticas (forma, golos, over%, BTTS, h2h). Um +EV que bate de frente com a forma/h2h é mais fraco.
 - Distingue valor real de ruído. É melhor dizer "não há valor fiável" do que recomendar lixo.
 
-Responde em Markdown com as secções pedidas pelo utilizador, específico e fundamentado nos NÚMEROS dados (cita-os). Nunca garantas resultados; edges pequenos exigem volume e disciplina. Não inventes dados que não recebeste. Termina com uma nota curta de jogo responsável.`;
+Responde em Markdown com as secções pedidas pelo utilizador. COMEÇA SEMPRE pelo **Top 3 apostas para o jogo** (de qualquer mercado), concreto e ordenado. Específico e fundamentado nos NÚMEROS dados (cita-os). Nunca garantas resultados; edges pequenos exigem volume e disciplina. Não inventes dados que não recebeste. Termina com uma nota curta de jogo responsável.`;
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') return json({ error: 'usa POST' }, 405);
