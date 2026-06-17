@@ -4,50 +4,7 @@
  */
 import { gamePreview, type GameAnalysis } from '../lib/gameAnalysis';
 import type { MatchupStats } from './apiFootball';
-import type { ValueBet } from '../lib/types';
 import { signedPct, odd as fmtOdd, pct } from '../lib/format';
-
-/** Prompt para o RESUMO DO DIA — as melhores apostas +EV do Mundial. */
-export function buildDailyPrompt(bets: ValueBet[]): string {
-  const lines: string[] = [];
-  lines.push('Estas são as apostas de futebol com valor (+EV) detetadas agora, ordenadas por edge:');
-  lines.push('');
-  for (const b of bets.slice(0, 10)) {
-    lines.push(
-      `• ${b.event.home} v ${b.event.away} — ${b.selection.label}: ` +
-        `${b.bestBook.toUpperCase()} @ ${fmtOdd(b.bestOdd)} (justa ${fmtOdd(b.fair.fairOdd)}, ` +
-        `edge ${signedPct(b.bestEdge)}, fiabilidade ${b.reliability}${b.suspicious ? ', SUSPEITA' : ''})`,
-    );
-  }
-  lines.push('');
-  lines.push(
-    'Faz um resumo curado: as 2-3 apostas com melhor valor REAL e porquê, quais evitar (ex.: fiabilidade baixa ou edge suspeito), e o destaque do dia. Sê conciso e honesto.',
-  );
-  return lines.join('\n');
-}
-
-/** Resumo do dia DETERMINÍSTICO (sem IA). */
-export function localDailyBriefing(bets: ValueBet[]): string {
-  if (bets.length === 0) return 'Sem apostas com valor positivo de momento. Baixa o edge mínimo ou aguarda.';
-  const parts: string[] = [];
-  const reliable = bets.filter((b) => b.reliability !== 'baixa' && !b.suspicious);
-  const top = (reliable.length ? reliable : bets).slice(0, 3);
-  parts.push('Melhor valor agora:');
-  for (const b of top) {
-    parts.push(
-      `• ${b.event.home} v ${b.event.away} — ${b.selection.label}: ${b.bestBook.toUpperCase()} @ ${fmtOdd(b.bestOdd)} ` +
-        `(edge ${signedPct(b.bestEdge)}, fiabilidade ${b.reliability}).`,
-    );
-  }
-  const suspicious = bets.filter((b) => b.suspicious || b.reliability === 'baixa');
-  if (suspicious.length) {
-    parts.push('');
-    parts.push(`A evitar / cautela: ${suspicious.length} aposta(s) de baixa fiabilidade ou edge suspeito (provável erro de odd).`);
-  }
-  parts.push('');
-  parts.push('Edges pequenos exigem volume. Aposta com responsabilidade.');
-  return parts.join('\n');
-}
 
 /**
  * Análise automática DETERMINÍSTICA (sem IA) — funciona sem chave nenhuma.
