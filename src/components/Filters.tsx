@@ -54,16 +54,19 @@ export function Filters() {
       </div>
 
       <div className="field">
-        <label htmlFor="f-edge">Edge mín · {(filters.minEdge * 100).toFixed(1)}%</label>
+        <label htmlFor="f-edge">
+          Edge mín · {filters.minEdge > 0 ? '+' : ''}
+          {(filters.minEdge * 100).toFixed(1)}%
+        </label>
         <input
           id="f-edge"
           type="range"
-          min={0}
+          min={-0.1}
           max={0.1}
           step={0.005}
           value={filters.minEdge}
           onChange={(e) => setFilters({ minEdge: Number(e.target.value) })}
-          style={{ width: 130 }}
+          style={{ width: 140 }}
         />
       </div>
 

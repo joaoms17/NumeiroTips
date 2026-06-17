@@ -44,11 +44,11 @@ export function Arbitrage() {
         <div className="table-wrap">
           <div className="empty">
             <div style={{ fontSize: 28, marginBottom: 8 }}>⇄</div>
-            Sem arbitragens agora.
+            Sem buracos no mercado agora.
             <br />
             <span className="muted">
-              Surebets entre Betclic e 1xBet são raras e fecham depressa — o scanner está a varrer
-              continuamente.
+              Buracos (surebets) entre Betclic e 1xBet são raros e fecham depressa — o scanner está
+              a varrer continuamente.
             </span>
           </div>
         </div>

@@ -109,7 +109,7 @@ export default function App() {
           className={`tab ${tab === 'arbitragem' ? 'active' : ''}`}
           onClick={() => setTab('arbitragem')}
         >
-          Arbitragem
+          Buracos no mercado
           {arbCount > 0 && <span className="badge">{arbCount}</span>}
         </button>
         <button

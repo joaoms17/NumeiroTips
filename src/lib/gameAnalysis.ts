@@ -38,6 +38,48 @@ export function upcomingEvents(snapshots: MarketSnapshot[], limit = 10): SportEv
     .slice(0, limit);
 }
 
+export interface GamePreview {
+  homeProb: number;
+  drawProb: number;
+  awayProb: number;
+  favorite: 'home' | 'draw' | 'away' | null;
+  /** Texto do equilíbrio do jogo. */
+  balance: string;
+  /** Probabilidade justa de over na linha principal (se houver), e a linha. */
+  overProb: number | null;
+  overLine: number | null;
+}
+
+/** Leitura determinística do jogo a partir das prob. justas (1X2 + golos). */
+export function gamePreview(a: GameAnalysis): GamePreview {
+  const x12 = a.selections.filter((s) => s.market === '1x2');
+  const p = (suffix: string) => x12.find((s) => s.selectionId.endsWith(`:${suffix}`))?.prob ?? 0;
+  const homeProb = p('home');
+  const drawProb = p('draw');
+  const awayProb = p('away');
+
+  const top = Math.max(homeProb, drawProb, awayProb);
+  let favorite: GamePreview['favorite'] = null;
+  if (top > 0) favorite = top === homeProb ? 'home' : top === awayProb ? 'away' : 'draw';
+
+  const sideMax = Math.max(homeProb, awayProb);
+  let balance = 'jogo equilibrado';
+  if (sideMax >= 0.6) balance = 'claro favorito';
+  else if (sideMax >= 0.45) balance = 'favorito ligeiro';
+
+  const ou = a.selections.filter((s) => s.market === 'over_under');
+  const over = ou.find((s) => s.selectionId.includes(':over'));
+  return {
+    homeProb,
+    drawProb,
+    awayProb,
+    favorite,
+    balance,
+    overProb: over ? over.prob : null,
+    overLine: over ? over.line : null,
+  };
+}
+
 export function analyzeGame(
   snapshots: MarketSnapshot[],
   eventId: string,
