@@ -53,7 +53,14 @@ async function gemini(prompt: string): Promise<string> {
       body: JSON.stringify({
         system_instruction: { parts: [{ text: SYSTEM }] },
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 1200, temperature: 0.6 },
+        generationConfig: {
+          maxOutputTokens: 2048,
+          temperature: 0.6,
+          // Gemini 2.5 tem "thinking" ligado por defeito, que consome o
+          // orçamento de tokens ANTES da resposta → cortava a meio.
+          // thinkingBudget: 0 desliga o thinking e toda a saída vai para o texto.
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       }),
     },
   );

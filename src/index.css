@@ -844,6 +844,10 @@ tr.detail-row > td {
 .ai-text .md-sp {
   height: 8px;
 }
+.ai-text .md-hr {
+  border-top: 1px solid var(--border);
+  margin: 10px 0;
+}
 .ai-text strong {
   color: var(--fg-0);
 }

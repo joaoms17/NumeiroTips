@@ -18,9 +18,10 @@ export function mdToHtml(src: string): string {
   return esc
     .split('\n')
     .map((line) => {
+      if (/^\s*-{3,}\s*$/.test(line)) return '<div class="md-hr"></div>';
       const h = line.match(/^\s*#{1,6}\s+(.*)$/);
       if (h) return `<div class="md-h">${inline(h[1])}</div>`;
-      const li = line.match(/^\s*[-•]\s+(.*)$/);
+      const li = line.match(/^\s*\d+\.\s+(.*)$/) || line.match(/^\s*[-•]\s+(.*)$/);
       if (li) return `<div class="md-li">${inline(li[1])}</div>`;
       if (line.trim() === '') return '<div class="md-sp"></div>';
       return `<div>${inline(line)}</div>`;

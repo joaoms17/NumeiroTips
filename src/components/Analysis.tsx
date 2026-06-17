@@ -189,10 +189,16 @@ function GameView({ a }: { a: GameAnalysis }) {
         <button className="btn" onClick={loadStats} disabled={statsLoading}>
           {statsLoading ? 'A carregar…' : '↻ Carregar stats reais'}
         </button>
+      ) : !stats.home && !stats.away ? (
+        <div className="muted" style={{ fontSize: 12 }}>
+          {stats.remaining === 0
+            ? 'Sem stats: quota diária da API-Football esgotada (reseta 00:00 UTC).'
+            : 'Sem stats disponíveis para estas equipas.'}
+        </div>
       ) : (
         <div className="grid-2" style={{ gap: 8 }}>
-          <StatBox t={stats.home} fallback={a.event.home} />
-          <StatBox t={stats.away} fallback={a.event.away} />
+          {stats.home && <StatBox t={stats.home} fallback={a.event.home} />}
+          {stats.away && <StatBox t={stats.away} fallback={a.event.away} />}
         </div>
       )}
       {stats?.h2h && stats.h2h.played > 0 && (
