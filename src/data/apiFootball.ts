@@ -47,7 +47,9 @@ export interface MatchupStats {
 }
 
 export function hasApiFootballKey(): boolean {
-  return !!env.apiFootballKey;
+  // Em produção o proxy /api/football pode ter a chave no servidor mesmo sem
+  // VITE_; por isso mostramos a opção e, se faltar a chave, o proxy avisa.
+  return !!env.apiFootballKey || import.meta.env.PROD;
 }
 
 // ---- cache helpers ----
@@ -75,10 +77,16 @@ function cacheSet<T>(key: string, v: T, ttl: number) {
 
 let lastRemaining: number | null = null;
 
+// Em produção (Vercel) usamos o proxy /api/football (mesma origem → sem CORS,
+// chave no servidor). Em dev fazemos chamada direta com a chave VITE_.
+const USE_PROXY = import.meta.env.PROD;
+
 async function af<T>(path: string): Promise<{ data: T[]; remaining: number | null }> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'x-apisports-key': env.apiFootballKey! },
-  });
+  const url = USE_PROXY ? `/api/football?path=${encodeURIComponent(path)}` : `${BASE}${path}`;
+  const headers: Record<string, string> = USE_PROXY
+    ? {}
+    : { 'x-apisports-key': env.apiFootballKey ?? '' };
+  const res = await fetch(url, { headers });
   const remaining = num(res.headers.get('x-ratelimit-requests-remaining'));
   if (remaining != null) lastRemaining = remaining;
   if (!res.ok) throw new Error(`API-Football HTTP ${res.status}`);
