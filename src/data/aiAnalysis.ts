@@ -101,41 +101,69 @@ export async function getAIAnalysis(prompt: string): Promise<string> {
   return text;
 }
 
-/** Resume a análise + stats num prompt legível para o modelo. */
+/** Prompt RICO e fundamentado para a análise de UM jogo. */
 export function buildPrompt(a: GameAnalysis, stats: MatchupStats | null): string {
-  const lines: string[] = [];
-  lines.push(`Jogo: ${a.event.home} vs ${a.event.away} (${a.event.league}).`);
-  lines.push('');
-  lines.push('Melhores apostas com valor (+EV), odd da casa e edge:');
+  const p = gamePreview(a);
+  const L: string[] = [];
+
+  L.push(`# Jogo: ${a.event.home} vs ${a.event.away} — ${a.event.league}`);
+  L.push('');
+  L.push('## Probabilidades justas (de-vig por consenso Pinnacle+Betfair)');
+  L.push(
+    `${a.event.home} ${pct(p.homeProb, 0)} · Empate ${pct(p.drawProb, 0)} · ${a.event.away} ${pct(p.awayProb, 0)} ` +
+      `(${p.balance}).` +
+      (p.overProb != null ? ` Over ${p.overLine}: ${pct(p.overProb, 0)}.` : ''),
+  );
+
+  L.push('');
+  L.push('## Apostas com valor (+EV) — com FIABILIDADE');
+  L.push('(fiabilidade = consenso de sharps + nº de casas; "suspeita" = edge implausível, provável erro de odd)');
   if (a.topBets.length === 0) {
-    lines.push('— nenhuma com edge positivo de momento.');
+    L.push('— nenhuma com edge positivo de momento.');
   } else {
     for (const b of a.topBets.slice(0, 8)) {
-      lines.push(
-        `• ${b.marketLabel} — ${b.label}: ${b.bestBook?.toUpperCase()} @ ${fmtOdd(b.bestOdd)} ` +
-          `(justa ${fmtOdd(b.fairOdd)}, edge ${signedPct(b.bestEdge)})`,
+      L.push(
+        `- ${b.marketLabel} — ${b.label}: ${b.bestBook?.toUpperCase()} @ ${fmtOdd(b.bestOdd)} ` +
+          `(justa ${fmtOdd(b.fairOdd)}, edge ${signedPct(b.bestEdge)}, ` +
+          `${b.sharps} sharp${b.sharps > 1 ? 's' : ''}, fiabilidade ${b.reliability}` +
+          `${b.suspicious ? ', SUSPEITA' : ''})`,
       );
     }
   }
+
   if (stats?.home || stats?.away) {
-    lines.push('');
-    lines.push('Estatísticas (últimos jogos):');
-    if (stats.home)
-      lines.push(
-        `${stats.home.team}: forma ${stats.home.form.join('')}, golos ${stats.home.gfAvg}/${stats.home.gaAvg}, ` +
-          `over2.5 ${pct(stats.home.over25Pct, 0)}, btts ${pct(stats.home.bttsPct, 0)}.`,
-      );
-    if (stats.away)
-      lines.push(
-        `${stats.away.team}: forma ${stats.away.form.join('')}, golos ${stats.away.gfAvg}/${stats.away.gaAvg}, ` +
-          `over2.5 ${pct(stats.away.over25Pct, 0)}, btts ${pct(stats.away.bttsPct, 0)}.`,
-      );
+    L.push('');
+    L.push('## Estatísticas reais (últimos jogos, API-Football)');
+    const fmtTeam = (t: NonNullable<MatchupStats['home']>) =>
+      `${t.team}: forma ${t.form.join('') || '—'}; golos ${t.gfAvg} marcados / ${t.gaAvg} sofridos por jogo; ` +
+      `over1.5 ${pct(t.over15Pct, 0)}, over2.5 ${pct(t.over25Pct, 0)}; ` +
+      `ambas marcam ${pct(t.bttsPct, 0)}; clean sheet ${pct(t.cleanSheetPct, 0)}.`;
+    if (stats.home) L.push(`- ${fmtTeam(stats.home)}`);
+    if (stats.away) L.push(`- ${fmtTeam(stats.away)}`);
     if (stats.h2h && stats.h2h.played > 0)
-      lines.push(
-        `Head-to-head (${stats.h2h.played}): ${stats.h2h.homeWins}V ${stats.h2h.draws}E ${stats.h2h.awayWins}D, ${stats.h2h.avgGoals} golos/jogo.`,
+      L.push(
+        `- Head-to-head (${stats.h2h.played}): ${stats.h2h.homeWins}V ${stats.h2h.draws}E ${stats.h2h.awayWins}D, ` +
+          `${stats.h2h.avgGoals} golos/jogo${stats.h2h.results.length ? ` (recentes: ${stats.h2h.results.slice(0, 5).join(', ')})` : ''}.`,
       );
+  } else {
+    L.push('');
+    L.push('## Estatísticas: não carregadas (sem chave API-Football ou quota esgotada).');
   }
-  lines.push('');
-  lines.push('Dá a tua visão e onde está o melhor valor.');
-  return lines.join('\n');
+
+  L.push('');
+  L.push('## Limitações de dados (importante para seres honesto)');
+  L.push(
+    'Fonte: The Odds API (grátis). Nestes jogos do Mundial normalmente só o 1xBet cota e a Betclic não está disponível, ' +
+      'logo há pouca corroboração entre casas. Edges de fiabilidade baixa ou suspeitos devem ser tratados com ceticismo.',
+  );
+
+  L.push('');
+  L.push('## O que quero de ti (responde com estas secções)');
+  L.push('1) **Leitura do jogo** — favorito, equilíbrio, golos esperados, com base nas probabilidades + forma + h2h.');
+  L.push('2) **Onde está o valor** — escolhe as 1-2 apostas com melhor valor REAL (cruza edge × fiabilidade × stats). Justifica.');
+  L.push('3) **A evitar** — apostas suspeitas / fiabilidade baixa / contra a forma.');
+  L.push('4) **Veredicto** — 1 frase + nível de confiança (alto/médio/baixo).');
+  L.push('Sê específico e fundamentado nos números dados; não inventes dados. Termina com nota curta de jogo responsável.');
+
+  return L.join('\n');
 }

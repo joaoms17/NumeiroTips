@@ -22,6 +22,7 @@ import {
 } from '../data/aiAnalysis';
 import { ACCOUNT_BOOK_META } from '../lib/types';
 import { odd as fmtOdd, pct, shortTime, signedPct } from '../lib/format';
+import { mdToHtml } from '../lib/markdown';
 
 export function Analysis() {
   const snapshots = useStore((s) => s.snapshots);
@@ -222,7 +223,7 @@ function GameView({ a }: { a: GameAnalysis }) {
               análise automática (sem IA) — define GEMINI_API_KEY (grátis) no servidor para a visão AI.
             </div>
           )}
-          {ai && <div className="ai-text">{ai}</div>}
+          {ai && <div className="ai-text" dangerouslySetInnerHTML={{ __html: mdToHtml(ai) }} />}
           {ai && (
             <button className="btn ghost" style={{ marginTop: 10 }} onClick={runAI} disabled={aiLoading}>
               {aiLoading ? 'A pensar…' : '↻ Regenerar'}
@@ -284,7 +285,7 @@ function DailyBriefing() {
             resumo automático (sem IA) — define GEMINI_API_KEY (grátis) no servidor para a visão AI.
           </div>
         )}
-        {text && <div className="ai-text">{text}</div>}
+        {text && <div className="ai-text" dangerouslySetInnerHTML={{ __html: mdToHtml(text) }} />}
         {text && (
           <button className="btn ghost" style={{ marginTop: 10 }} onClick={run} disabled={loading}>
             {loading ? 'A pensar…' : '↻ Regenerar'}

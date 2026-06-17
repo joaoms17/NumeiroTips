@@ -12,13 +12,15 @@
  */
 export const config = { runtime: 'edge' };
 
-const SYSTEM = `És um analista de apostas desportivas sharp e honesto, a escrever em português de Portugal.
-Recebes dados de um jogo: odds justas (de réguas sharp), odds das casas, edges (+EV) e estatísticas das equipas.
-Escreve uma análise CONCISA (máx ~180 palavras) e prática:
-- a leitura do jogo (forma, golos, h2h);
-- onde está o valor (as apostas +EV mais credíveis e porquê);
-- riscos/ressalvas.
-Regras: nunca garantas resultados; lembra que edges pequenos exigem volume; não inventes dados que não foram dados. Termina com uma nota curta de jogo responsável.`;
+const SYSTEM = `És um analista de apostas desportivas SHARP, rigoroso e honesto, a escrever em português de Portugal.
+Recebes dados estruturados de um jogo de futebol: probabilidades justas (de-vig por consenso de réguas sharp Pinnacle+Betfair), apostas +EV com a sua FIABILIDADE (consenso de sharps + nº de casas; "suspeita" = edge implausível, provável erro de odd), estatísticas reais das equipas e limitações da fonte de dados.
+
+Como raciocinar:
+- O justo das sharps é a tua âncora de probabilidade. O edge só vale se a fiabilidade for razoável: desconfia de edges SUSPEITOS ou de fiabilidade BAIXA (1 só casa, sem corroboração) — muitas vezes são erros de odd, não valor real.
+- Cruza SEMPRE o edge com as estatísticas (forma, golos, over%, BTTS, h2h). Um +EV que bate de frente com a forma/h2h é mais fraco.
+- Distingue valor real de ruído. É melhor dizer "não há valor fiável" do que recomendar lixo.
+
+Responde em Markdown com as secções pedidas pelo utilizador, específico e fundamentado nos NÚMEROS dados (cita-os). Nunca garantas resultados; edges pequenos exigem volume e disciplina. Não inventes dados que não recebeste. Termina com uma nota curta de jogo responsável.`;
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') return json({ error: 'usa POST' }, 405);
@@ -42,7 +44,7 @@ export default async function handler(req: Request): Promise<Response> {
 }
 
 async function gemini(prompt: string): Promise<string> {
-  const model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
+  const model = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
     {
@@ -51,7 +53,7 @@ async function gemini(prompt: string): Promise<string> {
       body: JSON.stringify({
         system_instruction: { parts: [{ text: SYSTEM }] },
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 800, temperature: 0.6 },
+        generationConfig: { maxOutputTokens: 1200, temperature: 0.6 },
       }),
     },
   );
@@ -69,7 +71,7 @@ async function groq(prompt: string): Promise<string> {
     headers: { authorization: `Bearer ${process.env.GROQ_API_KEY}`, 'content-type': 'application/json' },
     body: JSON.stringify({
       model,
-      max_tokens: 800,
+      max_tokens: 1200,
       temperature: 0.6,
       messages: [
         { role: 'system', content: SYSTEM },
@@ -93,7 +95,7 @@ async function anthropic(prompt: string): Promise<string> {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 800,
+      max_tokens: 1200,
       system: SYSTEM,
       messages: [{ role: 'user', content: prompt }],
     }),
