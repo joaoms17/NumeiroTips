@@ -32,33 +32,123 @@ import type {
 } from '../lib/types';
 import { deepLinkFor } from '../lib/deeplinks';
 
-/** Calcula os preços justos de um mercado a partir da régua sharp escolhida. */
+/** De-vig de UMA régua sharp → probabilidades por seleção (ou null). */
+function devigSharp(
+  snap: MarketSnapshot,
+  source: SharpBook,
+  method: 'shin' | 'proportional',
+): number[] | null {
+  const sharpQuotes = snap.quotes[source as BookId];
+  if (!sharpQuotes) return null;
+  const odds: number[] = [];
+  for (const sel of snap.selections) {
+    const q = sharpQuotes[sel.id];
+    if (!q || !(q.odd > 1)) return null;
+    odds.push(q.odd);
+  }
+  return devig(odds, method).outcomes.map((o) => o.prob);
+}
+
+/** Calcula os preços justos de um mercado a partir de UMA régua sharp. */
 export function computeFairPrices(
   snap: MarketSnapshot,
   source: SharpBook,
   method: 'shin' | 'proportional',
 ): FairPrice[] | null {
-  const sharpQuotes = snap.quotes[source as BookId];
-  if (!sharpQuotes) return null;
-
-  // Mantém a ordem das seleções e garante que a sharp cota todas.
-  const odds: number[] = [];
-  for (const sel of snap.selections) {
-    const q = sharpQuotes[sel.id];
-    if (!q || !(q.odd > 1)) return null; // sharp incompleta → não dá para de-vig
-    odds.push(q.odd);
-  }
-
-  const result = devig(odds, method);
+  const probs = devigSharp(snap, source, method);
+  if (!probs) return null;
   const now = new Date().toISOString();
   return snap.selections.map((sel, i) => ({
     selectionId: sel.id,
-    prob: result.outcomes[i].prob,
-    fairOdd: result.outcomes[i].fairOdd,
-    method: result.method,
+    prob: probs[i],
+    fairOdd: 1 / probs[i],
+    method,
     source,
+    sharps: 1,
+    divergence: 0,
     computedAt: now,
   }));
+}
+
+/**
+ * Preço justo por CONSENSO de réguas sharp (Pinnacle + Betfair).
+ * Usa as duas quando ambas cotam o mercado: a probabilidade justa é a média e
+ * mede-se a DIVERGÊNCIA entre elas (sinal de fiabilidade). Com só uma, usa essa.
+ * `preferred` é a régua a usar quando só uma está disponível / para o rótulo.
+ */
+export function computeConsensusFair(
+  snap: MarketSnapshot,
+  preferred: SharpBook,
+  method: 'shin' | 'proportional',
+): FairPrice[] | null {
+  const pin = devigSharp(snap, 'pinnacle', method);
+  const bet = devigSharp(snap, 'betfair', method);
+  const available: Array<{ src: SharpBook; probs: number[] }> = [];
+  if (pin) available.push({ src: 'pinnacle', probs: pin });
+  if (bet) available.push({ src: 'betfair', probs: bet });
+  if (available.length === 0) return null;
+
+  const n = snap.selections.length;
+  const now = new Date().toISOString();
+
+  if (available.length === 1) {
+    const only = available[0];
+    return snap.selections.map((sel, i) => ({
+      selectionId: sel.id,
+      prob: only.probs[i],
+      fairOdd: 1 / only.probs[i],
+      method,
+      source: only.src,
+      sharps: 1,
+      divergence: 0,
+      computedAt: now,
+    }));
+  }
+
+  // duas sharps: média + divergência (pp média entre elas), renormalizada.
+  const [a, b] = available;
+  let divSum = 0;
+  const avg: number[] = [];
+  for (let i = 0; i < n; i++) {
+    avg.push((a.probs[i] + b.probs[i]) / 2);
+    divSum += Math.abs(a.probs[i] - b.probs[i]);
+  }
+  const s = avg.reduce((x, y) => x + y, 0) || 1;
+  const divergence = divSum / n;
+  return snap.selections.map((sel, i) => {
+    const prob = avg[i] / s;
+    return {
+      selectionId: sel.id,
+      prob,
+      fairOdd: 1 / prob,
+      method,
+      source: preferred,
+      sharps: 2,
+      divergence,
+      computedAt: now,
+    };
+  });
+}
+
+/** Limiar de edge implausível (provável erro de odd). */
+const SUSPICIOUS_EDGE = 0.15;
+/** Divergência de sharps acima da qual o consenso é "frágil" (pp). */
+const HIGH_DIVERGENCE = 0.03;
+
+/** Classifica a fiabilidade de um sinal. */
+export function rateReliability(
+  fair: FairPrice,
+  bestEdge: number,
+  corroboratingBooks: number,
+): { reliability: 'alta' | 'média' | 'baixa'; suspicious: boolean } {
+  const suspicious = bestEdge > SUSPICIOUS_EDGE;
+  if (suspicious) return { reliability: 'baixa', suspicious: true };
+  const twoSharpsAgree = fair.sharps >= 2 && fair.divergence <= HIGH_DIVERGENCE;
+  if (twoSharpsAgree && corroboratingBooks >= 2) return { reliability: 'alta', suspicious: false };
+  if (fair.sharps >= 2 && fair.divergence > HIGH_DIVERGENCE)
+    return { reliability: 'baixa', suspicious: false }; // sharps discordam
+  if (twoSharpsAgree || corroboratingBooks >= 2) return { reliability: 'média', suspicious: false };
+  return { reliability: 'baixa', suspicious: false }; // 1 sharp + 1 casa
 }
 
 /**
@@ -72,7 +162,7 @@ export function evaluateMarket(
   config: EngineConfig,
   previous?: Map<string, ValueBet>,
 ): ValueBet[] {
-  const fairs = computeFairPrices(snap, config.sharpSource, config.devigMethod);
+  const fairs = computeConsensusFair(snap, config.sharpSource, config.devigMethod);
   if (!fairs) return [];
 
   const fairBySel = new Map(fairs.map((f) => [f.selectionId, f]));
@@ -127,6 +217,8 @@ export function evaluateMarket(
 
     const id = sel.id; // estável: mesmo mercado+seleção
     const prev = previous?.get(id);
+    const corroborating = books.filter((b) => b.edge > 0).length;
+    const { reliability, suspicious } = rateReliability(fair, bestEdge, corroborating);
 
     out.push({
       id,
@@ -142,6 +234,8 @@ export function evaluateMarket(
       // Preserva o "detetado em" se a aposta já existia → mede frescura real.
       detectedAt: prev?.detectedAt ?? now,
       updatedAt: now,
+      reliability,
+      suspicious,
     });
   }
 

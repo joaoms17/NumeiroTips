@@ -127,10 +127,16 @@ export interface FairPrice {
   prob: number;
   fairOdd: number;
   method: 'shin' | 'proportional';
-  /** Régua usada (qual sharp). */
+  /** Régua(s) usada(s). */
   source: SharpBook;
+  /** Nº de réguas sharp usadas no consenso (1 ou 2). */
+  sharps: number;
+  /** Divergência entre as sharps neste mercado (pp; 0 = só uma sharp). */
+  divergence: number;
   computedAt: string;
 }
+
+export type Reliability = 'alta' | 'média' | 'baixa';
 
 /** Resultado por casa-alvo dentro de uma value bet. */
 export interface BookEdge {
@@ -161,6 +167,10 @@ export interface ValueBet {
   detectedAt: string;
   /** Atualizado a cada re-cálculo enquanto a aposta continua viva. */
   updatedAt: string;
+  /** Fiabilidade do sinal (consenso de sharps + corroboração + sanidade). */
+  reliability: Reliability;
+  /** True se o edge é implausivelmente grande (provável erro de odd). */
+  suspicious: boolean;
 }
 
 export interface EngineConfig {
@@ -202,6 +212,8 @@ export interface FeedFilters {
   maxOdd: number;
   /** Só jogos a começar nas próximas X horas (0 = qualquer altura). */
   withinHours: number;
+  /** Esconder sinais de baixa fiabilidade (1 sharp / sharps a divergir / suspeitos). */
+  onlyReliable: boolean;
   book: TargetBook | 'all';
   search: string;
 }
@@ -212,6 +224,7 @@ export const DEFAULT_FILTERS: FeedFilters = {
   minOdd: 1.0,
   maxOdd: 0,
   withinHours: 0,
+  onlyReliable: false,
   book: 'all',
   search: '',
 };

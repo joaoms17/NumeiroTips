@@ -263,6 +263,7 @@ export function selectFilteredFeed(state: AppState): ValueBet[] {
     if (vb.bestOdd < filters.minOdd) return false;
     if (filters.maxOdd > 0 && vb.bestOdd > filters.maxOdd) return false;
     if (new Date(vb.event.startsAt).getTime() > horizon) return false;
+    if (filters.onlyReliable && (vb.reliability === 'baixa' || vb.suspicious)) return false;
     if (filters.book !== 'all' && !vb.books.some((b) => b.book === filters.book && b.isValue))
       return false;
     if (q) {

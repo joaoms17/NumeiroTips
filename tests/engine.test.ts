@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateMarket, evaluateFeed, computeFairPrices } from '../src/engine/engine';
+import {
+  evaluateMarket,
+  evaluateFeed,
+  computeFairPrices,
+  computeConsensusFair,
+  rateReliability,
+} from '../src/engine/engine';
 import { DEFAULT_ENGINE_CONFIG } from '../src/lib/types';
-import type { MarketSnapshot, EngineConfig } from '../src/lib/types';
+import type { MarketSnapshot, EngineConfig, FairPrice } from '../src/lib/types';
 
 /** Constrói um snapshot 1X2 com odds controladas por casa. */
 function makeSnapshot(odds: {
@@ -127,5 +133,56 @@ describe('motor — deteção de value bets', () => {
     for (let i = 1; i < feed.length; i++) {
       expect(feed[i - 1].bestEdge).toBeGreaterThanOrEqual(feed[i].bestEdge);
     }
+  });
+});
+
+describe('consenso de sharps e fiabilidade', () => {
+  function snapWithBothSharps(): MarketSnapshot {
+    const base = makeSnapshot({
+      pinnacle: [2.0, 3.6, 4.0],
+      betclic: [2.1, 3.5, 3.9],
+      '1xbet': [2.05, 3.55, 3.95],
+    });
+    // acrescenta Betfair quase igual ao Pinnacle (concordam)
+    const now = new Date().toISOString();
+    const bf: Record<string, { selectionId: string; book: string; odd: number; capturedAt: string }> = {};
+    base.selections.forEach((s, i) => {
+      bf[s.id] = { selectionId: s.id, book: 'betfair', odd: [2.02, 3.62, 3.98][i], capturedAt: now };
+    });
+    (base.quotes as Record<string, unknown>).betfair = bf;
+    return base;
+  }
+
+  it('usa as duas sharps: sharps=2 e probabilidades somam 1', () => {
+    const fairs = computeConsensusFair(snapWithBothSharps(), 'pinnacle', 'shin')!;
+    expect(fairs[0].sharps).toBe(2);
+    expect(fairs.reduce((s, f) => s + f.prob, 0)).toBeCloseTo(1, 8);
+    expect(fairs[0].divergence).toBeGreaterThanOrEqual(0);
+  });
+
+  it('só uma sharp → sharps=1, divergência 0', () => {
+    const fairs = computeConsensusFair(
+      makeSnapshot({ pinnacle: [2, 4, 4], betclic: [2, 4, 4], '1xbet': [2, 4, 4] }),
+      'pinnacle',
+      'shin',
+    )!;
+    expect(fairs[0].sharps).toBe(1);
+    expect(fairs[0].divergence).toBe(0);
+  });
+
+  it('rateReliability: edge gigante = suspeito', () => {
+    const fair = { sharps: 2, divergence: 0.01 } as FairPrice;
+    expect(rateReliability(fair, 0.3, 2).suspicious).toBe(true);
+    expect(rateReliability(fair, 0.3, 2).reliability).toBe('baixa');
+  });
+
+  it('rateReliability: 2 sharps a concordar + 2 casas = alta', () => {
+    const fair = { sharps: 2, divergence: 0.01 } as FairPrice;
+    expect(rateReliability(fair, 0.03, 2).reliability).toBe('alta');
+  });
+
+  it('rateReliability: 1 sharp + 1 casa = baixa', () => {
+    const fair = { sharps: 1, divergence: 0 } as FairPrice;
+    expect(rateReliability(fair, 0.03, 1).reliability).toBe('baixa');
   });
 });
