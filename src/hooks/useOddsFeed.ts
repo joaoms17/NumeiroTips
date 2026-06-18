@@ -12,8 +12,9 @@
 import { useEffect } from 'react';
 import { MockOddsProvider } from '../data/mockProvider';
 import { TheOddsApiProvider } from '../data/theOddsApiProvider';
+import { SnapshotCacheProvider } from '../data/snapshotCacheProvider';
 import { useStore } from '../state/store';
-import { getDataMode, env } from '../lib/env';
+import { getDataMode, getSnapshotUrl, env } from '../lib/env';
 import { subscribeLiveValueBets } from '../data/liveProvider';
 
 /** Intervalo de polling do The Odds API (20 min) — protege a quota grátis. */
@@ -32,6 +33,13 @@ export function useOddsFeed() {
     if (mode === 'live') {
       setConnection(true, 'Supabase Realtime');
       cleanup = subscribeLiveValueBets((bets) => setLiveValueBets(bets));
+    } else if (mode === 'snapshot') {
+      // Caminho durável: lê o snapshot.json do coletor agendado. Zero créditos
+      // gastos no browser; o motor corre localmente sobre os snapshots.
+      const provider = new SnapshotCacheProvider({ url: getSnapshotUrl()! });
+      setCredits(null);
+      setConnection(true, provider.name);
+      cleanup = provider.subscribe((snaps, meta) => ingest(snaps, meta));
     } else if (mode === 'theoddsapi') {
       // Se já temos um lote recente em cache, adia o 1º scan: ao abrir/atualizar
       // a app mostramos os jogos guardados sem queimar créditos.

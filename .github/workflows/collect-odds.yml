@@ -1,0 +1,65 @@
+name: Coletor de odds (cache)
+
+# Corre o coletor num horário fixo e publica snapshot.json na branch `odds-cache`.
+# A app lê esse ficheiro (modo 'snapshot') — por isso o consumo de créditos do
+# The Odds API é FIXO e previsível (1 execução = nº_ligas × nº_mercados créditos),
+# independente de quantas vezes a app é aberta.
+#
+# Setup (uma vez):
+#   1. Settings → Secrets and variables → Actions → New repository secret
+#        THE_ODDS_API_KEY = <a tua chave do the-odds-api.com>
+#   2. (Opcional) ajustar cadência no cron abaixo e mercados/ligas via secrets:
+#        THE_ODDS_API_MARKETS, THE_ODDS_API_SPORTS, THE_ODDS_API_REGIONS
+#   3. Na Vercel, definir VITE_ODDS_SNAPSHOT_URL para o raw da branch odds-cache
+#      (ver .env.example) e remover VITE_THE_ODDS_API_KEY do cliente.
+
+on:
+  schedule:
+    # A cada 30 min. Custo/mês ≈ (60/30)*24*30 * (nº_ligas × nº_mercados) créditos.
+    # Sobe o intervalo (ex.: '0 */2 * * *' = de 2 em 2h) se precisares de poupar.
+    - cron: '*/30 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-odds
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Coletar odds
+        env:
+          THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+          THE_ODDS_API_MARKETS: ${{ secrets.THE_ODDS_API_MARKETS }}
+          THE_ODDS_API_SPORTS: ${{ secrets.THE_ODDS_API_SPORTS }}
+          THE_ODDS_API_REGIONS: ${{ secrets.THE_ODDS_API_REGIONS }}
+          THE_ODDS_API_BOOKMAKERS: ${{ secrets.THE_ODDS_API_BOOKMAKERS }}
+        run: npm run collect:odds
+
+      - name: Publicar snapshot na branch odds-cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test -f snapshot.json || { echo "sem snapshot.json — abortar"; exit 1; }
+          mkdir -p .cache-publish
+          mv snapshot.json .cache-publish/snapshot.json
+          cd .cache-publish
+          git init -q
+          git checkout -q -b odds-cache
+          git add snapshot.json
+          git -c user.email="actions@github.com" -c user.name="odds-collector" \
+            commit -qm "odds snapshot $(date -u +%FT%TZ)"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" odds-cache

@@ -7,7 +7,12 @@
  */
 import type { MarketSnapshot } from '../lib/types';
 
-export type SnapshotListener = (snapshots: MarketSnapshot[]) => void;
+/** Recebe um lote de snapshots. `meta.at` = quando os dados foram gerados
+ * (epoch ms), se a fonte souber (ex.: coletor agendado). */
+export type SnapshotListener = (
+  snapshots: MarketSnapshot[],
+  meta?: { at?: number },
+) => void;
 
 export interface OddsProvider {
   /** Começa a emitir snapshots. Devolve uma função de cleanup. */

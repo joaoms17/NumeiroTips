@@ -113,7 +113,7 @@ export interface AppState {
   credits: number | null;
 
   // ações
-  ingestSnapshots: (snaps: MarketSnapshot[]) => void;
+  ingestSnapshots: (snaps: MarketSnapshot[], meta?: { at?: number }) => void;
   /** Atualiza os créditos restantes reportados pela fonte. */
   setCredits: (remaining: number | null) => void;
   /** Caminho live: value bets já calculadas no servidor (sem motor cliente). */
@@ -154,7 +154,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   setCredits: (remaining) => set({ credits: remaining }),
 
-  ingestSnapshots: (snaps) => {
+  ingestSnapshots: (snaps, meta) => {
     // Fonte devolveu VAZIO (créditos esgotados / erro de rede / nada em época):
     // mantém os últimos snapshots em vez de apagar o feed.
     if (snaps.length === 0 && get().snapshots.length > 0) {
@@ -184,8 +184,12 @@ export const useStore = create<AppState>((set, get) => ({
     const bets = updateClosingLines(get().bets, snaps, get().config);
     if (bets !== get().bets) save({ config: get().config, filters: get().filters, bets });
 
+    // Idade REAL dos dados: quando foram gerados no servidor (se vier do coletor),
+    // senão o instante atual. Importante para o aviso de "dados de há X".
+    const dataAt = meta?.at ?? now;
+
     // Guarda o lote para sobreviver a reloads / falta de créditos.
-    saveSnap(snaps, now);
+    saveSnap(snaps, dataAt);
 
     set({
       valueBets: feed,
@@ -195,7 +199,7 @@ export const useStore = create<AppState>((set, get) => ({
       movement,
       bets,
       lastTickAt: now,
-      snapAt: now,
+      snapAt: dataAt,
     });
   },
 
