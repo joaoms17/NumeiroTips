@@ -28,6 +28,7 @@ export function Feed() {
   if (feed.length === 0) {
     return (
       <div className="table-wrap">
+        <FeedStatus />
         <div className="empty">
           <div style={{ fontSize: 28, marginBottom: 8 }}>⌁</div>
           Sem value bets a cumprir os filtros agora.
@@ -44,6 +45,7 @@ export function Feed() {
   if (isMobile) {
     return (
       <div className="feed-cards">
+        <FeedStatus />
         {feed.map((vb) => (
           <FeedCard
             key={vb.id}
@@ -61,6 +63,7 @@ export function Feed() {
 
   return (
     <div className="table-wrap">
+      <FeedStatus />
       <table>
         <thead>
           <tr>
@@ -194,6 +197,37 @@ function FeedRow({
       </td>
     </tr>
   );
+}
+
+/** Aviso de estado dos dados: créditos esgotados ou cache antiga. */
+function FeedStatus() {
+  const snapAt = useStore((s) => s.snapAt);
+  const credits = useStore((s) => s.credits);
+  const now = useNow(30000);
+  if (!snapAt) return null;
+
+  const ageMin = Math.floor((now - snapAt) / 60000);
+  const when = ageMin < 1 ? 'agora mesmo' : ageMin < 60 ? `há ${ageMin} min` : `há ${Math.floor(ageMin / 60)}h`;
+
+  // Créditos esgotados (ou quase) → estamos a mostrar o último lote guardado.
+  if (credits != null && credits <= 0) {
+    return (
+      <div className="note danger" style={{ marginBottom: 10 }}>
+        Créditos do The Odds API esgotados (tier grátis = 500/mês, reseta no início do mês).
+        A mostrar os últimos jogos guardados ({when}). Para mais agora: nova chave/plano nas Definições.
+      </div>
+    );
+  }
+  // Dados com mais de ~45 min → avisar que é cache à espera de novo varrimento.
+  if (ageMin >= 45) {
+    return (
+      <div className="note" style={{ marginBottom: 10 }}>
+        Dados de {when} (guardados). Novo varrimento em breve
+        {credits != null ? ` · ${credits} créditos restantes` : ''}.
+      </div>
+    );
+  }
+  return null;
 }
 
 function MovementCell({ mov }: { mov?: MovementInfo }) {

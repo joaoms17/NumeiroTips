@@ -31,14 +31,17 @@ export interface TheOddsApiConfig {
   baseUrl?: string;
   /** Regiões (default 'eu' — cobre Betclic/1xBet/Pinnacle/Betfair). */
   regions?: string;
-  /** Mercados (default 'h2h,totals,spreads' — os grátis; 'btts' pode ser pago). */
+  /** Mercados (default 'h2h,totals' — cada mercado custa créditos; menos = dura mais). */
   markets?: string;
   /** Casas a pedir (poupa créditos e ruído). */
   bookmakers?: string;
   /** Ligas (sport keys) a varrer. */
   sportKeys?: string[];
-  /** Intervalo de polling em ms (default 600000 = 10 min — protege a quota). */
+  /** Intervalo de polling em ms (default 1200000 = 20 min — protege a quota). */
   pollMs?: number;
+  /** Atraso do PRIMEIRO scan (ms). Permite mostrar cache fresco sem gastar
+   * créditos ao abrir/atualizar a app. Default 0 (varre já). */
+  firstDelayMs?: number;
   /** Travão: pára o polling quando os créditos restantes caem até aqui (default 10). */
   minCredits?: number;
   /** Callback opcional com os créditos restantes (header da resposta). */
@@ -67,27 +70,37 @@ const DEFAULT_LEAGUES = [
 export class TheOddsApiProvider implements OddsProvider {
   readonly name = 'The Odds API';
   private timer: ReturnType<typeof setInterval> | null = null;
+  private firstTimer: ReturnType<typeof setTimeout> | null = null;
   private stopped = false;
 
   constructor(private config: TheOddsApiConfig) {}
 
   subscribe(listener: SnapshotListener): () => void {
+    const pollMs = this.config.pollMs ?? 1200000;
     const tick = () => {
       this.pollOnce(listener).catch((e) => console.error('[the-odds-api] poll falhou', e));
     };
-    tick();
-    this.timer = setInterval(tick, this.config.pollMs ?? 600000);
+    const start = () => {
+      tick();
+      this.timer = setInterval(tick, pollMs);
+    };
+    // Se houver cache fresco, adia o 1º scan (não gasta créditos ao abrir).
+    const firstDelay = this.config.firstDelayMs ?? 0;
+    if (firstDelay > 0) this.firstTimer = setTimeout(start, firstDelay);
+    else start();
     return () => {
       this.stopped = true;
+      if (this.firstTimer) clearTimeout(this.firstTimer);
       if (this.timer) clearInterval(this.timer);
       this.timer = null;
+      this.firstTimer = null;
     };
   }
 
   private async pollOnce(listener: SnapshotListener) {
     const base = this.config.baseUrl ?? 'https://api.the-odds-api.com/v4';
     const regions = this.config.regions ?? 'eu';
-    const markets = this.config.markets ?? 'h2h,totals,spreads';
+    const markets = this.config.markets ?? 'h2h,totals';
     const bookmakers = this.config.bookmakers ?? 'pinnacle,betfair_ex_eu,betclic,onexbet';
     const leagues = this.config.sportKeys ?? DEFAULT_LEAGUES;
 

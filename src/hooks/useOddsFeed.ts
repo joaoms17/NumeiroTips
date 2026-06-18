@@ -16,10 +16,14 @@ import { useStore } from '../state/store';
 import { getDataMode, env } from '../lib/env';
 import { subscribeLiveValueBets } from '../data/liveProvider';
 
+/** Intervalo de polling do The Odds API (20 min) — protege a quota grátis. */
+const POLL_MS = 20 * 60 * 1000;
+
 export function useOddsFeed() {
   const ingest = useStore((s) => s.ingestSnapshots);
   const setLiveValueBets = useStore((s) => s.setLiveValueBets);
   const setConnection = useStore((s) => s.setConnection);
+  const setCredits = useStore((s) => s.setCredits);
 
   useEffect(() => {
     let cleanup = () => {};
@@ -29,10 +33,19 @@ export function useOddsFeed() {
       setConnection(true, 'Supabase Realtime');
       cleanup = subscribeLiveValueBets((bets) => setLiveValueBets(bets));
     } else if (mode === 'theoddsapi') {
+      // Se já temos um lote recente em cache, adia o 1º scan: ao abrir/atualizar
+      // a app mostramos os jogos guardados sem queimar créditos.
+      const snapAt = useStore.getState().snapAt;
+      const age = snapAt ? Date.now() - snapAt : Infinity;
+      const firstDelayMs = age < POLL_MS ? POLL_MS - age : 0;
       const provider = new TheOddsApiProvider({
         apiKey: env.theOddsApiKey!,
-        onQuota: (remaining) =>
-          setConnection(true, `The Odds API${remaining != null ? ` · ${remaining}cr` : ''}`),
+        pollMs: POLL_MS,
+        firstDelayMs,
+        onQuota: (remaining) => {
+          setCredits(remaining);
+          setConnection(true, `The Odds API${remaining != null ? ` · ${remaining}cr` : ''}`);
+        },
       });
       setConnection(true, provider.name);
       cleanup = provider.subscribe((snaps) => ingest(snaps));
@@ -46,5 +59,5 @@ export function useOddsFeed() {
       cleanup();
       setConnection(false, '—');
     };
-  }, [ingest, setLiveValueBets, setConnection]);
+  }, [ingest, setLiveValueBets, setConnection, setCredits]);
 }

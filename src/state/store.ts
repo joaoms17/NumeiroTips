@@ -33,6 +33,7 @@ import { DEFAULT_ENGINE_CONFIG, DEFAULT_FILTERS } from '../lib/types';
 import { clv as computeClv } from '../lib/math/clv';
 
 const LS_KEY = 'numeirotips:v1';
+const SNAP_KEY = 'numeirotips:snap:v1';
 
 interface Persisted {
   config: EngineConfig;
@@ -57,7 +58,37 @@ function save(p: Persisted) {
   }
 }
 
+/** Cache do último lote de snapshots — para o feed não ficar EM BRANCO quando
+ * os créditos do The Odds API acabam (ou ao reabrir a app antes de novo scan). */
+function loadSnap(): { snap: MarketSnapshot[]; at: number } | null {
+  try {
+    const raw = localStorage.getItem(SNAP_KEY);
+    if (!raw) return null;
+    const o = JSON.parse(raw) as { snap: MarketSnapshot[]; at: number };
+    return Array.isArray(o.snap) ? o : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSnap(snap: MarketSnapshot[], at: number) {
+  try {
+    localStorage.setItem(SNAP_KEY, JSON.stringify({ snap, at }));
+  } catch {
+    /* ignore quota */
+  }
+}
+
 const persisted = load();
+const cachedSnap = loadSnap();
+const initialConfig = { ...DEFAULT_ENGINE_CONFIG, ...persisted.config };
+const initialSnaps = cachedSnap?.snap ?? [];
+const initialFeed = initialSnaps.length
+  ? evaluateFeed(initialSnaps, initialConfig, new Map())
+  : [];
+const initialArbs = initialSnaps.length
+  ? scanArbitrage(initialSnaps, initialConfig.activeBooks, initialConfig.arbMinMargin)
+  : [];
 
 export interface AppState {
   config: EngineConfig;
@@ -76,9 +107,15 @@ export interface AppState {
   connected: boolean;
   sourceName: string;
   lastTickAt: number;
+  /** Quando o último lote NÃO-VAZIO de snapshots foi recebido (epoch ms). */
+  snapAt: number;
+  /** Créditos restantes do The Odds API (null = desconhecido). */
+  credits: number | null;
 
   // ações
   ingestSnapshots: (snaps: MarketSnapshot[]) => void;
+  /** Atualiza os créditos restantes reportados pela fonte. */
+  setCredits: (remaining: number | null) => void;
   /** Caminho live: value bets já calculadas no servidor (sem motor cliente). */
   setLiveValueBets: (bets: ValueBet[]) => void;
   setConfig: (patch: Partial<EngineConfig>) => void;
@@ -101,19 +138,30 @@ export interface AppState {
 }
 
 export const useStore = create<AppState>((set, get) => ({
-  config: { ...DEFAULT_ENGINE_CONFIG, ...persisted.config },
+  config: initialConfig,
   filters: { ...DEFAULT_FILTERS, ...persisted.filters },
-  valueBets: [],
-  snapshots: [],
-  prevIndex: new Map(),
-  arbs: [],
+  valueBets: initialFeed,
+  snapshots: initialSnaps,
+  prevIndex: new Map(initialFeed.map((vb) => [vb.id, vb])),
+  arbs: initialArbs,
   movement: {},
   bets: persisted.bets ?? [],
   connected: false,
   sourceName: '—',
   lastTickAt: 0,
+  snapAt: cachedSnap?.at ?? 0,
+  credits: null,
+
+  setCredits: (remaining) => set({ credits: remaining }),
 
   ingestSnapshots: (snaps) => {
+    // Fonte devolveu VAZIO (créditos esgotados / erro de rede / nada em época):
+    // mantém os últimos snapshots em vez de apagar o feed.
+    if (snaps.length === 0 && get().snapshots.length > 0) {
+      set({ lastTickAt: Date.now() });
+      return;
+    }
+
     const { config, prevIndex } = get();
     const feed = evaluateFeed(snaps, config, prevIndex);
     const nextIndex = new Map(feed.map((vb) => [vb.id, vb]));
@@ -136,6 +184,9 @@ export const useStore = create<AppState>((set, get) => ({
     const bets = updateClosingLines(get().bets, snaps, get().config);
     if (bets !== get().bets) save({ config: get().config, filters: get().filters, bets });
 
+    // Guarda o lote para sobreviver a reloads / falta de créditos.
+    saveSnap(snaps, now);
+
     set({
       valueBets: feed,
       snapshots: snaps,
@@ -144,6 +195,7 @@ export const useStore = create<AppState>((set, get) => ({
       movement,
       bets,
       lastTickAt: now,
+      snapAt: now,
     });
   },
 
