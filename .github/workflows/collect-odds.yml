@@ -42,11 +42,19 @@ jobs:
 
       - name: Coletar odds
         env:
+          # Fonte: 'theoddsapi' (500/mês) ou 'apifootball' (100/DIA, reseta diário).
+          # Define a variável COLLECT_SOURCE nos secrets/variables para trocar.
+          COLLECT_SOURCE: ${{ vars.COLLECT_SOURCE || secrets.COLLECT_SOURCE }}
+          # The Odds API
           THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
           THE_ODDS_API_MARKETS: ${{ secrets.THE_ODDS_API_MARKETS }}
           THE_ODDS_API_SPORTS: ${{ secrets.THE_ODDS_API_SPORTS }}
           THE_ODDS_API_REGIONS: ${{ secrets.THE_ODDS_API_REGIONS }}
           THE_ODDS_API_BOOKMAKERS: ${{ secrets.THE_ODDS_API_BOOKMAKERS }}
+          # API-Football (reset diário) — para COLLECT_SOURCE=apifootball
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          AF_LEAGUES: ${{ vars.AF_LEAGUES || secrets.AF_LEAGUES }}
+          AF_MAX_FIXTURES: ${{ vars.AF_MAX_FIXTURES || secrets.AF_MAX_FIXTURES }}
         run: npm run collect:odds
 
       - name: Publicar snapshot na branch odds-cache
