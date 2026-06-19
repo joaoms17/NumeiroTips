@@ -3,6 +3,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { useGame } from './game/store';
 import { friendById, APP_NAME } from './game/config';
 import { useOnlineSync } from './hooks/useOnlineSync';
+import { useFixtures } from './hooks/useFixtures';
 import { Login } from './components/game/Login';
 import { Jogos } from './components/game/Jogos';
 import { Tabela } from './components/game/Tabela';
@@ -12,6 +13,7 @@ type Tab = 'jogos' | 'tabela' | 'regras';
 
 export default function App() {
   useOnlineSync();
+  useFixtures();
   const meId = useGame((s) => s.meId);
   const online = useGame((s) => s.online);
   const me = friendById(meId);

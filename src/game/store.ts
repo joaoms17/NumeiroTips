@@ -94,6 +94,8 @@ export interface GameState {
   /** Online: substitui o estado partilhado (após fetch/realtime). */
   setRemote: (data: { picks: Pick[]; spins: Record<string, SpinRec> }) => void;
   setFlash: (f: GameState['flash']) => void;
+  /** Substitui a lista de jogos (ex.: dados reais do API-Football). */
+  setMatches: (matches: Match[]) => void;
 }
 
 /** Fonte efetiva de palpites/spins: remota (online) ou local+semente. */
@@ -236,6 +238,8 @@ export const useGame = create<GameState>((set, get) => ({
   setRemote: ({ picks, spins }) => set({ remotePicks: picks, remoteSpins: spins }),
 
   setFlash: (f) => set({ flash: f }),
+
+  setMatches: (matches) => set({ matches, selectedDay: defaultDay(matches) }),
 }));
 
 /** Upsert de um pick (substitui o do mesmo amigo+jogo). */
