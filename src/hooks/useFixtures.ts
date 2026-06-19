@@ -5,9 +5,25 @@ import { loadLiveFixtures } from '../game/liveFixtures';
 
 export function useFixtures() {
   const setMatches = useGame((s) => s.setMatches);
+  const setFixturesStatus = useGame((s) => s.setFixturesStatus);
   useEffect(() => {
+    let alive = true;
+    setFixturesStatus('loading');
     loadLiveFixtures()
-      .then((m) => { if (m.length > 0) setMatches(m); })
-      .catch((e) => console.warn('[fixtures] jogos reais indisponíveis, a usar mock:', e));
-  }, [setMatches]);
+      .then((m) => {
+        if (!alive) return;
+        if (m.length > 0) {
+          setMatches(m);
+          setFixturesStatus('ready');
+        } else {
+          setFixturesStatus('empty');
+        }
+      })
+      .catch((e) => {
+        if (!alive) return;
+        console.warn('[fixtures] jogos reais indisponíveis:', e);
+        setFixturesStatus('empty');
+      });
+    return () => { alive = false; };
+  }, [setMatches, setFixturesStatus]);
 }

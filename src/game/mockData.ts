@@ -1,9 +1,10 @@
 /**
- * Dados de exemplo do Mundial 2026 — para a app ser jogável e animada já,
- * antes de ligar a API-Football real. Inclui 2 dias terminados (com ratings e
- * palpites dos 4 → a tabela mostra números) + hoje + dias seguintes.
+ * Plantéis (jogadores reais) por seleção — usados para preencher os candidatos
+ * a escolher em cada jogo. Os JOGOS em si vêm da API-Football (ver
+ * liveFixtures.ts); aqui ficam só os onzes prováveis das seleções conhecidas.
+ * Seleções sem plantel aqui caem em nomes genéricos (Defesa 1, Médio 2, …).
  */
-import type { Footballer, Match, NationTeam, Pick, Pos } from './types';
+import type { Footballer, NationTeam, Pos } from './types';
 
 const T = (code: string, name: string, flag: string): NationTeam => ({ code, name, flag });
 
@@ -79,70 +80,4 @@ const SQUADS: Record<string, Footballer[]> = {
 
 export function squad(code: string): Footballer[] {
   return SQUADS[code] ?? [];
-}
-
-function mk(
-  id: string,
-  day: string,
-  kickoff: string,
-  stage: string,
-  homeCode: string,
-  awayCode: string,
-  status: Match['status'],
-  extra: Partial<Match> = {},
-): Match {
-  return {
-    id,
-    day,
-    kickoff,
-    stage,
-    home: TEAMS[homeCode],
-    away: TEAMS[awayCode],
-    status,
-    lineup: { home: squad(homeCode), away: squad(awayCode) },
-    ...extra,
-  };
-}
-
-export const MOCK_MATCHES: Match[] = [
-  // ---- 16 jun (terminado) ----
-  mk('m-por-cro', '2026-06-16', '2026-06-16T19:00:00Z', 'Grupo F', 'POR', 'CRO', 'finished', {
-    homeGoals: 3, awayGoals: 0,
-    ratings: { 'POR-7': 8.4, 'POR-8': 7.9, 'POR-15': 7.2, 'POR-3': 7.0, 'CRO-10': 7.5, 'CRO-9': 6.6 },
-  }),
-  mk('m-bra-mex', '2026-06-16', '2026-06-16T22:00:00Z', 'Grupo C', 'BRA', 'MEX', 'finished', {
-    homeGoals: 2, awayGoals: 1,
-    ratings: { 'BRA-20': 8.1, 'BRA-19': 7.6, 'BRA-1': 6.8, 'MEX-22': 7.0, 'MEX-9': 7.3 },
-  }),
-  // ---- 17 jun (terminado) ----
-  mk('m-fra-esp', '2026-06-17', '2026-06-17T21:00:00Z', 'Grupo D', 'FRA', 'ESP', 'finished', {
-    homeGoals: 2, awayGoals: 2,
-    ratings: { 'ESP-19': 8.3, 'FRA-10': 8.0, 'ESP-8': 7.4, 'FRA-7': 7.1, 'ESP-7': 6.9 },
-  }),
-  // ---- 18 jun (hoje) ----
-  mk('m-esp-mex', '2026-06-18', '2026-06-18T18:00:00Z', 'Grupo B', 'ESP', 'MEX', 'live', {
-    minute: 57, homeGoals: 1, awayGoals: 0,
-  }),
-  mk('m-arg-usa', '2026-06-18', '2026-06-18T22:00:00Z', 'Grupo A', 'ARG', 'USA', 'upcoming'),
-  mk('m-eng-ned', '2026-06-18', '2026-06-19T01:00:00Z', 'Grupo G', 'ENG', 'NED', 'upcoming'),
-  // ---- 19 jun (amanhã) ----
-  mk('m-fra-bra', '2026-06-19', '2026-06-19T19:00:00Z', 'Grupo D', 'FRA', 'BRA', 'upcoming'),
-  mk('m-por-arg', '2026-06-19', '2026-06-19T22:00:00Z', 'Grupo F', 'POR', 'ARG', 'upcoming'),
-];
-
-/** Palpites já feitos nos dias terminados (para a tabela arrancar com números). */
-export const MOCK_PICKS: Pick[] = [
-  // 16 jun — POR x CRO
-  p('ruben', 'm-por-cro', 'POR-7'), p('joao', 'm-por-cro', 'POR-8'),
-  p('tiago', 'm-por-cro', 'CRO-10'), p('jaime', 'm-por-cro', 'POR-15'),
-  // 16 jun — BRA x MEX
-  p('ruben', 'm-bra-mex', 'BRA-20'), p('joao', 'm-bra-mex', 'BRA-19'),
-  p('tiago', 'm-bra-mex', 'MEX-22'), p('jaime', 'm-bra-mex', 'BRA-1'),
-  // 17 jun — FRA x ESP
-  p('ruben', 'm-fra-esp', 'ESP-19'), p('joao', 'm-fra-esp', 'FRA-10'),
-  p('tiago', 'm-fra-esp', 'ESP-8'), p('jaime', 'm-fra-esp', 'FRA-7'),
-];
-
-function p(friendId: string, matchId: string, footballerId: string): Pick {
-  return { friendId, matchId, footballerId, at: '2026-06-16T00:00:00Z' };
 }
