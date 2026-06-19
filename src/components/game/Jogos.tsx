@@ -17,6 +17,9 @@ export function Jogos() {
   const days = useGame(dayList);
   const matches = useGame((s) => matchesOfDay(s, selectedDay));
   const fixturesStatus = useGame((s) => s.fixturesStatus);
+  const refreshFixtures = useGame((s) => s.refreshFixtures);
+  const isAdmin = meId === 'joao';
+  const refreshing = fixturesStatus === 'loading';
 
   if (days.length === 0) {
     return (
@@ -55,7 +58,14 @@ export function Jogos() {
 
       <RodaBanner day={selectedDay} />
 
-      <div className="rr-day-title">{dayLabel(selectedDay)}</div>
+      <div className="rr-day-head">
+        <span className="rr-day-title">{dayLabel(selectedDay)}</span>
+        {isAdmin && (
+          <button className="rr-refresh" onClick={refreshFixtures} disabled={refreshing} title="Forçar atualização (admin)">
+            {refreshing ? <span className="rr-spinner sm" /> : '🔄'} atualizar
+          </button>
+        )}
+      </div>
 
       <div className="rr-cards">
         {matches.map((m, i) => (
@@ -77,6 +87,9 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
   const robbed = useGame((s) => iWasRobbed(s, match.id));
   const picked = pick && !robbed ? findFootballer(match, pick.footballerId) : null;
   const earned = match.status === 'finished' && pick && !robbed ? ratingOf(match, pick.footballerId) : null;
+  // nota AO VIVO do meu jogador (ainda não somada) — só durante o jogo
+  const liveRating =
+    match.status === 'live' && pick && !robbed ? match.ratings?.[pick.footballerId] ?? null : null;
   const order = pickOrder(FRIENDS, [match], match);
 
   const ajuda = spinRec && spinRec.ajuda !== 'nenhuma' ? ajudaMeta(spinRec.ajuda) : null;
@@ -92,7 +105,10 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
   return (
     <div className={`rr-card slide-up status-${match.status}`} style={{ animationDelay: `${index * 60}ms` }}>
       <div className="rr-card-top">
-        <span className="rr-stage">{match.stage}</span>
+        <span className="rr-stage">
+          {match.stage}
+          {match.lineupConfirmed && <span className="rr-lineup-badge" title="Onze oficial já anunciado">✅ onze oficial</span>}
+        </span>
         <MatchState match={match} />
       </div>
 
@@ -128,6 +144,8 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
           </div>
           {earned != null ? (
             <span className="rr-earned"><CountUp value={earned} /> <small>pts</small></span>
+          ) : liveRating != null ? (
+            <span className="rr-earned live"><CountUp value={liveRating} /> <small>ao vivo</small></span>
           ) : isOpen(match) ? (
             <button className="rr-change" onClick={() => setPicker('pick')}>trocar</button>
           ) : (

@@ -12,6 +12,8 @@ import { FRIENDS } from './config';
 import { canPick, byKickoff, standingsWithHelps, helpsFromSpins, takenInMatch } from './scoring';
 import { spinAjuda, ajudaMeta } from './wheel';
 import { isOnline, pushPick, pushSpin } from './online';
+import { clearFixturesCache } from './liveFixtures';
+import { clearSofascoreCache } from './sofascore';
 
 const ONLINE = isOnline();
 
@@ -75,6 +77,8 @@ export interface GameState {
   matches: Match[];
   /** Estado do carregamento dos jogos reais (API-Football). */
   fixturesStatus: FixturesStatus;
+  /** Bump para forçar novo fetch dos jogos (botão admin "atualizar"). */
+  fixturesRefreshKey: number;
   userPicks: Pick[];
   spins: Record<string, SpinRec>;
   /** Online: estado partilhado vindo do Supabase (todos os amigos). */
@@ -100,6 +104,8 @@ export interface GameState {
   setMatches: (matches: Match[]) => void;
   /** Atualiza o estado de carregamento dos jogos. */
   setFixturesStatus: (status: FixturesStatus) => void;
+  /** Força ir buscar de novo os jogos (limpa cache e re-fetch). */
+  refreshFixtures: () => void;
 }
 
 /** Fonte efetiva de palpites/spins: remota (online) ou local. */
@@ -123,6 +129,7 @@ export const useGame = create<GameState>((set, get) => ({
   meId: savedMe,
   matches: [],
   fixturesStatus: 'loading',
+  fixturesRefreshKey: 0,
   userPicks: initialUser,
   spins: loadSpins(),
   online: ONLINE,
@@ -251,6 +258,12 @@ export const useGame = create<GameState>((set, get) => ({
   })),
 
   setFixturesStatus: (fixturesStatus) => set({ fixturesStatus }),
+
+  refreshFixtures: () => {
+    clearSofascoreCache();
+    clearFixturesCache();
+    set((s) => ({ fixturesRefreshKey: s.fixturesRefreshKey + 1 }));
+  },
 }));
 
 /** Upsert de um pick (substitui o do mesmo amigo+jogo). */

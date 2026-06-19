@@ -46,8 +46,12 @@ export interface Match {
   awayGoals?: number;
   /** Onze provável / candidatos a escolher, por equipa. */
   lineup: { home: Footballer[]; away: Footballer[] };
-  /** Rating final por jogador (só quando finished). */
+  /** Onze OFICIAL já anunciado (vs. plantel/provável). */
+  lineupConfirmed?: boolean;
+  /** Rating por jogador. Ao vivo se 'live'; final se 'finished'. */
   ratings?: Record<string, number>;
+  /** Origem dos dados deste jogo (para depurar / mostrar fonte). */
+  source?: 'sofascore' | 'apifootball' | 'fallback';
 }
 
 export interface Pick {

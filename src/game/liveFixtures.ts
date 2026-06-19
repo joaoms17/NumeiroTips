@@ -134,7 +134,7 @@ const TEAM_MAP: Record<string, { code: string; name: string; flag: string }> = {
   'New Zealand': { code: 'NZL', name: 'Nova Zelândia', flag: '🇳🇿' },
 };
 
-function teamFor(apiName: string): NationTeam {
+export function teamFor(apiName: string): NationTeam {
   return TEAM_MAP[apiName] ?? { code: apiName.replace(/\s+/g, '').toUpperCase().slice(0, 3), name: apiName, flag: '🏳️' };
 }
 
@@ -145,7 +145,7 @@ const GENERIC_POS: Array<[Footballer['pos'], string]> = [
   ['AVA', 'Avançado 1'], ['AVA', 'Avançado 2'],
 ];
 
-function squadFor(code: string): Footballer[] {
+export function squadFor(code: string): Footballer[] {
   const existing = mockSquad(code);
   if (existing.length > 0) return existing;
   return GENERIC_POS.map(([pos, name], i) => ({
