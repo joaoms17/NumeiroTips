@@ -17,6 +17,13 @@ export function isOpen(match: Match): boolean {
   return match.status === 'upcoming';
 }
 
+/** O jogo já começou? Status não-upcoming OU a hora de início já passou. */
+export function hasStarted(match: Match, now: number = Date.now()): boolean {
+  if (match.status !== 'upcoming') return true;
+  const t = new Date(match.kickoff).getTime();
+  return Number.isFinite(t) && now >= t;
+}
+
 /** Rating de um jogador num jogo (0 se não jogou / sem rating). */
 export function ratingOf(match: Match, footballerId: string): number {
   return match.ratings?.[footballerId] ?? 0;
@@ -119,6 +126,25 @@ export function turnBlockedBy(
     if (!picked.has(f.id)) return f;     // alguém antes ainda não escolheu
   }
   return null;
+}
+
+/**
+ * Ainda posso trocar a minha escolha? Só enquanto NINGUÉM a seguir a mim na
+ * ordem tiver escolhido (assim que o próximo escolhe, a minha tranca).
+ */
+export function canChangePick(
+  picks: Pick[],
+  order: Friend[],
+  matchId: string,
+  friendId: string,
+): boolean {
+  const picked = new Set(picks.filter((p) => p.matchId === matchId).map((p) => p.friendId));
+  const myIdx = order.findIndex((f) => f.id === friendId);
+  if (myIdx < 0) return true;
+  for (let i = myIdx + 1; i < order.length; i++) {
+    if (picked.has(order[i].id)) return false; // alguém depois já escolheu
+  }
+  return true;
 }
 
 /** Classificação geral = soma de ratings por amigo. */

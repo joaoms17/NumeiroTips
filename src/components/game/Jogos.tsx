@@ -2,7 +2,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useGame, allPicks, dayList, matchesOfDay, myPick, mySpin, claimedInMatch, iWasRobbed } from '../../game/store';
-import { isOpen, ratingOf, takenInMatch, usedByFriendOnDay, pickOrder, turnBlockedBy } from '../../game/scoring';
+import { isOpen, hasStarted, takenInMatch, usedByFriendOnDay, pickOrder, turnBlockedBy, canChangePick } from '../../game/scoring';
 import { FRIENDS } from '../../game/config';
 import { ajudaMeta } from '../../game/wheel';
 import { dayLabel, dayNum, kickLabel, relToday } from '../../game/format';
@@ -23,6 +23,12 @@ export function Jogos() {
   const isAdmin = meId === 'joao';
   const refreshing = fixturesStatus === 'loading';
   const [importing, setImporting] = useState(false);
+  // re-render periódico para os jogos "fecharem" e revelarem ao passar a hora
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   if (days.length === 0) {
     return (
@@ -97,14 +103,13 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
 
   const robbed = useGame((s) => iWasRobbed(s, match.id));
   const picked = pick && !robbed ? findFootballer(match, pick.footballerId) : null;
-  const earned = match.status === 'finished' && pick && !robbed ? ratingOf(match, pick.footballerId) : null;
-  // nota AO VIVO do meu jogador (ainda não somada) — só durante o jogo
-  const liveRating =
-    match.status === 'live' && pick && !robbed ? match.ratings?.[pick.footballerId] ?? null : null;
+  const started = hasStarted(match); // hora passou ou já live/finished
+  const open = isOpen(match) && !started; // ainda dá para escolher
   const order = pickOrder(FRIENDS, allMatches, match);
   const pickedIds = new Set(picks.filter((p) => p.matchId === match.id).map((p) => p.friendId));
   const currentTurn = order.find((f) => !pickedIds.has(f.id)) ?? null;
-  const waitingFor = isOpen(match) ? turnBlockedBy(picks, order, match.id, meId) : null;
+  const waitingFor = open ? turnBlockedBy(picks, order, match.id, meId) : null;
+  const canChange = canChangePick(picks, order, match.id, meId); // trancada quando o próximo escolhe
 
   const ajuda = spinRec && spinRec.ajuda !== 'nenhuma' ? ajudaMeta(spinRec.ajuda) : null;
   const helpUnused = !!ajuda && !spinRec!.matchId;
@@ -128,7 +133,7 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
 
       <div className="rr-teams">
         <Side team={match.home} goals={match.homeGoals} />
-        <span className="rr-vs">{match.status === 'upcoming' ? kickLabel(match.kickoff) : '—'}</span>
+        <span className="rr-vs">{!started ? kickLabel(match.kickoff) : '—'}</span>
         <Side team={match.away} goals={match.awayGoals} right />
       </div>
 
@@ -136,7 +141,7 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
         {order.map((f, i) => (
           <span
             key={f.id}
-            className={`rr-order-chip ${pickedIds.has(f.id) ? 'done' : ''} ${currentTurn?.id === f.id && isOpen(match) ? 'turn' : ''}`}
+            className={`rr-order-chip ${pickedIds.has(f.id) ? 'done' : ''} ${currentTurn?.id === f.id && open ? 'turn' : ''}`}
             style={{ '--c': f.color } as CSSProperties}
             title={`${i + 1}º a escolher — ${f.name}${pickedIds.has(f.id) ? ' (já escolheu)' : ''}`}
           >
@@ -150,38 +155,32 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
         <div className="rr-help-here">{ajudaMeta(spinRec!.ajuda).emoji} ajuda aplicada aqui</div>
       )}
 
-      {robbed && (
-        <div className="rr-robbed">🕵️ Roubaram-te o jogador! {isOpen(match) ? 'Escolhe outro.' : ''}</div>
+      {open && robbed && (
+        <div className="rr-robbed">🕵️ Roubaram-te o jogador! Escolhe outro.</div>
       )}
 
-      {picked ? (
-        <div className={`rr-mypick ${earned != null ? 'scored pop' : ''}`}>
+      {started ? (
+        <RevealPicks match={match} picks={picks} meId={meId} />
+      ) : picked ? (
+        <div className="rr-mypick">
           <div className="rr-mypick-info">
             <span className="rr-pos">{picked.pos}</span>
             <span className="rr-pl-name">{picked.name}</span>
             <span className="rr-pl-team"><Flag cc={teamByCode(match, picked.team).cc} flag={teamByCode(match, picked.team).flag} name={picked.team} /></span>
           </div>
-          {earned != null ? (
-            <span className="rr-earned"><CountUp value={earned} /> <small>pts</small></span>
-          ) : liveRating != null ? (
-            <span className="rr-earned live"><CountUp value={liveRating} /> <small>ao vivo</small></span>
-          ) : isOpen(match) ? (
+          {canChange ? (
             <button className="rr-change" onClick={() => setPicker('pick')}>trocar</button>
           ) : (
-            <span className="rr-lock">🔒</span>
+            <span className="rr-lock" title="Já não podes trocar — alguém a seguir já escolheu">🔒</span>
           )}
         </div>
-      ) : isOpen(match) && waitingFor ? (
+      ) : waitingFor ? (
         <div className="rr-wait muted">⏳ aguarda a vez de <b>{waitingFor.initials}</b> · {waitingFor.name}</div>
-      ) : isOpen(match) ? (
-        <button className="rr-choose" onClick={() => setPicker('pick')}>＋ Escolher jogador</button>
-      ) : match.status === 'finished' ? (
-        <div className="rr-nopick muted">não escolheste 😬 levaste o pior rating do jogo</div>
       ) : (
-        <div className="rr-nopick muted">não escolheste 😬</div>
+        <button className="rr-choose" onClick={() => setPicker('pick')}>＋ Escolher jogador</button>
       )}
 
-      {isOpen(match) && helpUnused && (
+      {open && helpUnused && (
         <button className="rr-use-help" onClick={useHelpHere}>
           usar {ajuda!.emoji} {ajuda!.name} aqui
         </button>
@@ -345,6 +344,42 @@ function findFootballer(match: Match, id: string): Footballer | null {
 }
 function teamByCode(match: Match, code: string): NationTeam {
   return match.home.code === code ? match.home : match.away;
+}
+
+/** Revela a escolha de cada amigo (depois do jogo começar). */
+function RevealPicks({ match, picks, meId }: { match: Match; picks: ReturnType<typeof allPicks>; meId: string }) {
+  const finished = match.status === 'finished';
+  return (
+    <div className="rr-reveal">
+      <div className="rr-reveal-h">🔓 Escolhas de cada um</div>
+      {FRIENDS.map((f) => {
+        const fp = picks.find((p) => p.matchId === match.id && p.friendId === f.id);
+        const fb = fp ? findFootballer(match, fp.footballerId) : null;
+        const rating = fb ? match.ratings?.[fb.id] ?? null : null;
+        return (
+          <div key={f.id} className={`rr-reveal-row ${f.id === meId ? 'me' : ''}`}>
+            <span className="rr-reveal-chip" style={{ '--c': f.color } as CSSProperties}>{f.initials}</span>
+            {fb ? (
+              <>
+                <span className="rr-pos">{fb.pos}</span>
+                <span className="rr-reveal-name">{fb.name}</span>
+                <span className="rr-reveal-team">
+                  <Flag cc={teamByCode(match, fb.team).cc} flag={teamByCode(match, fb.team).flag} name={fb.team} />
+                </span>
+              </>
+            ) : (
+              <span className="rr-reveal-name muted">não escolheu 😬</span>
+            )}
+            {rating != null && rating > 0 && (
+              <span className={`rr-reveal-rating ${finished ? 'final' : 'live'}`}>
+                <CountUp value={rating} />
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 /** Painel admin: cola um (ou vários) patch(es) JSON com onze + notas. */

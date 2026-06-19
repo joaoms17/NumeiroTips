@@ -9,7 +9,7 @@
 import { create } from 'zustand';
 import type { AjudaId, Footballer, Match, MatchPatch, Pick, SpinRec } from './types';
 import { FRIENDS } from './config';
-import { canPick, byKickoff, standingsWithHelps, helpsFromSpins, takenInMatch, pickOrder, turnBlockedBy } from './scoring';
+import { canPick, byKickoff, standingsWithHelps, helpsFromSpins, takenInMatch, pickOrder, turnBlockedBy, canChangePick, hasStarted } from './scoring';
 import { spinAjuda, ajudaMeta } from './wheel';
 import { isOnline, pushPick, pushSpin, pushPatch, pushPin, clearPicksAndSpins } from './online';
 import { clearFixturesCache } from './liveFixtures';
@@ -247,11 +247,26 @@ export const useGame = create<GameState>((set, get) => ({
     if (!meId) return;
     const match = matches.find((m) => m.id === matchId);
     if (!match) return;
-    // respeita a ordem de escolha rotativa
-    const waiting = turnBlockedBy(picksOf(s), pickOrder(FRIENDS, matches, match), matchId, meId);
-    if (waiting) {
-      set({ flash: { kind: 'err', text: `⏳ É a vez de ${waiting.name} — espera.` } });
+    if (hasStarted(match)) {
+      set({ flash: { kind: 'err', text: '⛔ O jogo já começou — escolhas fechadas.' } });
       return;
+    }
+    const order = pickOrder(FRIENDS, matches, match);
+    const cur = picksOf(s);
+    const alreadyPicked = cur.some((p) => p.matchId === matchId && p.friendId === meId);
+    if (alreadyPicked) {
+      // trocar: só enquanto ninguém a seguir já tiver escolhido
+      if (!canChangePick(cur, order, matchId, meId)) {
+        set({ flash: { kind: 'err', text: '🔒 Já não podes trocar — alguém a seguir já escolheu.' } });
+        return;
+      }
+    } else {
+      // primeira escolha: respeita a vez (ordem rotativa)
+      const waiting = turnBlockedBy(cur, order, matchId, meId);
+      if (waiting) {
+        set({ flash: { kind: 'err', text: `⏳ É a vez de ${waiting.name} — espera.` } });
+        return;
+      }
     }
     const check = canPick(picksOf(s), matches, meId, match, footballerId);
     if (!check.ok) {
