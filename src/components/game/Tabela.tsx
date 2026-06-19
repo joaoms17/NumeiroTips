@@ -1,17 +1,26 @@
 /** Classificação — soma de ratings, com barras animadas e coroa para o líder. */
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useGame, standingsOf } from '../../game/store';
+import { matchPhase } from '../../game/scoring';
 
 export function Tabela() {
   const meId = useGame((s) => s.meId);
   const rows = useGame(standingsOf);
+  const matches = useGame((s) => s.matches);
   const max = Math.max(1, ...rows.map((r) => r.total));
+  const anyLive = matches.some((m) => matchPhase(m) === 'live');
+  // re-render periódico para a classificação passar de provisória a definitiva
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <div className="rr-tabela">
       <div className="rr-tabela-h">
         <span>👑 Classificação</span>
-        <span className="muted">soma de ratings</span>
+        <span className={anyLive ? 'rr-prov' : 'muted'}>{anyLive ? '● provisória' : 'definitiva'}</span>
       </div>
 
       {rows.map((r, i) => (
@@ -41,7 +50,8 @@ export function Tabela() {
       ))}
 
       <div className="rr-tabela-foot muted">
-        Soma-se o rating real de cada jogador escolhido. Atualiza sozinho quando os jogos acabam.
+        Soma do rating de cada jogador escolhido. <b>Provisória</b> enquanto há jogos a decorrer;
+        fica <b>definitiva</b> quando terminam.
       </div>
     </div>
   );

@@ -49,10 +49,11 @@ describe('RATING ROYALE — pontuação', () => {
     expect(c.picks).toBe(0); // penalização não conta como jogo "pontuado"
   });
 
-  it('jogo não terminado não conta (nem penaliza quem não escolheu)', () => {
+  it('jogo a decorrer conta provisoriamente; só penaliza quando termina', () => {
     const live = base('m3', '2026-06-16', 'live', { ratings: { 'X-7': 9 } });
     const rows = standings(FR, [live], [{ friendId: 'a', matchId: 'm3', footballerId: 'X-7', at: '' }]);
-    expect(rows[0].total).toBe(0);
+    expect(rows.find((r) => r.friend.id === 'a')!.total).toBe(9); // provisório, conta
+    expect(rows.find((r) => r.friend.id === 'c')!.total).toBe(0); // não penaliza enquanto não termina
   });
 });
 
