@@ -106,6 +106,37 @@ export async function pushSpin(friendId: string, day: string, rec: SpinRec): Pro
   );
 }
 
+interface PinRow { friend_id: string; pin: string }
+
+/** PINs personalizados (partilhados). Sobrepõem-se aos PINs por defeito. */
+export async function fetchPins(): Promise<Record<string, string>> {
+  const supa = getSupabase();
+  if (!supa) return {};
+  const res = await supa.from('rr_pins').select('*').eq('league', LEAGUE);
+  const out: Record<string, string> = {};
+  for (const r of (res.data ?? []) as PinRow[]) out[r.friend_id] = r.pin;
+  return out;
+}
+
+export async function pushPin(friendId: string, pin: string): Promise<void> {
+  const supa = getSupabase();
+  if (!supa) return;
+  await supa.from('rr_pins').upsert(
+    { league: LEAGUE, friend_id: friendId, pin, updated_at: new Date().toISOString() },
+    { onConflict: 'league,friend_id' },
+  );
+}
+
+/** Admin: apaga TODAS as escolhas e rodas (recomeçar o jogo). */
+export async function clearPicksAndSpins(): Promise<void> {
+  const supa = getSupabase();
+  if (!supa) return;
+  await Promise.all([
+    supa.from('rr_picks').delete().eq('league', LEAGUE),
+    supa.from('rr_spins').delete().eq('league', LEAGUE),
+  ]);
+}
+
 /** Subscreve mudanças em tempo real; chama onChange a cada alteração. */
 export function subscribe(onChange: () => void): () => void {
   const supa = getSupabase();
@@ -115,6 +146,7 @@ export function subscribe(onChange: () => void): () => void {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'rr_picks', filter: `league=eq.${LEAGUE}` }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'rr_spins', filter: `league=eq.${LEAGUE}` }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'rr_ratings', filter: `league=eq.${LEAGUE}` }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'rr_pins', filter: `league=eq.${LEAGUE}` }, onChange)
     .subscribe();
   return () => {
     void supa.removeChannel(ch);
