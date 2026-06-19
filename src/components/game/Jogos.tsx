@@ -5,8 +5,9 @@ import { isOpen, ratingOf, takenInMatch, usedByFriendOnDay, pickOrder } from '..
 import { FRIENDS } from '../../game/config';
 import { ajudaMeta } from '../../game/wheel';
 import { dayLabel, dayNum, kickLabel, relToday } from '../../game/format';
-import type { Footballer, Match, MatchPatch } from '../../game/types';
+import type { Footballer, Match, MatchPatch, NationTeam } from '../../game/types';
 import { RodaBanner } from './Roda';
+import { Flag } from './Flag';
 
 type HelpMode = 'second' | 'target' | 'steal';
 
@@ -122,9 +123,9 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
       </div>
 
       <div className="rr-teams">
-        <Side flag={match.home.flag} name={match.home.name} goals={match.homeGoals} />
+        <Side team={match.home} goals={match.homeGoals} />
         <span className="rr-vs">{match.status === 'upcoming' ? kickLabel(match.kickoff) : '—'}</span>
-        <Side flag={match.away.flag} name={match.away.name} goals={match.awayGoals} right />
+        <Side team={match.away} goals={match.awayGoals} right />
       </div>
 
       <div className="rr-order">
@@ -149,7 +150,7 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
           <div className="rr-mypick-info">
             <span className="rr-pos">{picked.pos}</span>
             <span className="rr-pl-name">{picked.name}</span>
-            <span className="rr-pl-team">{teamFlag(match, picked.team)}</span>
+            <span className="rr-pl-team"><Flag cc={teamByCode(match, picked.team).cc} flag={teamByCode(match, picked.team).flag} name={picked.team} /></span>
           </div>
           {earned != null ? (
             <span className="rr-earned"><CountUp value={earned} /> <small>pts</small></span>
@@ -264,7 +265,7 @@ function PlayerPicker({
           {[match.home, match.away].map((team) => (
             <div key={team.code}>
               <div className="rr-pl-group">
-                {team.flag} {team.name}
+                <Flag cc={team.cc} flag={team.flag} name={team.name} /> {team.name}
                 {match.lineupConfirmed && starters.size > 0 && <span className="rr-pl-group-xi">onze oficial ✅</span>}
               </div>
               {byTeam(team.code).map((p) => {
@@ -293,11 +294,11 @@ function PlayerPicker({
   );
 }
 
-function Side({ flag, name, goals, right }: { flag: string; name: string; goals?: number; right?: boolean }) {
+function Side({ team, goals, right }: { team: NationTeam; goals?: number; right?: boolean }) {
   return (
     <div className={`rr-side ${right ? 'right' : ''}`}>
-      <span className="rr-flag">{flag}</span>
-      <span className="rr-team-name">{name}</span>
+      <span className="rr-flag"><Flag cc={team.cc} flag={team.flag} name={team.name} /></span>
+      <span className="rr-team-name">{team.name}</span>
       {goals != null && <span className="rr-goals">{goals}</span>}
     </div>
   );
@@ -330,8 +331,8 @@ function CountUp({ value }: { value: number }) {
 function findFootballer(match: Match, id: string): Footballer | null {
   return [...match.lineup.home, ...match.lineup.away].find((p) => p.id === id) ?? null;
 }
-function teamFlag(match: Match, code: string): string {
-  return match.home.code === code ? match.home.flag : match.away.flag;
+function teamByCode(match: Match, code: string): NationTeam {
+  return match.home.code === code ? match.home : match.away;
 }
 
 /** Painel admin: cola um (ou vários) patch(es) JSON com onze + notas. */

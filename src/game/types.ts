@@ -29,7 +29,8 @@ export interface Footballer {
 export interface NationTeam {
   code: string; // 'POR'
   name: string; // 'Portugal'
-  flag: string; // emoji 🇵🇹
+  flag: string; // emoji 🇵🇹 (fallback)
+  cc?: string;  // código flagcdn p/ imagem da bandeira ('pt', 'gb-eng', …)
 }
 
 export type MatchStatus = 'upcoming' | 'live' | 'finished';
