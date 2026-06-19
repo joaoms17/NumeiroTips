@@ -112,4 +112,15 @@ describe('RATING ROYALE — ajudas da roda', () => {
     expect(rows.find((r) => r.friend.id === 'a')!.total).toBe(8.0); // rouba o Y-9
     expect(rows.find((r) => r.friend.id === 'b')!.total).toBe(0); // perdeu-o
   });
+
+  it('depois de roubado, o dono reescolhe outro e pontua-o', () => {
+    // 'a' rouba o Y-9; 'b' reescolheu o X-7 (4.0)
+    const rePicks: Pick[] = [
+      { friendId: 'b', matchId: 'mh', footballerId: 'X-7', at: '' },
+    ];
+    const helps: Help[] = [{ friendId: 'a', ajuda: 'rouba', matchId: 'mh', targetFootballerId: 'Y-9' }];
+    const rows = standingsWithHelps(FR, matches, rePicks, helps);
+    expect(rows.find((r) => r.friend.id === 'a')!.total).toBe(8.0); // ficou com o roubado
+    expect(rows.find((r) => r.friend.id === 'b')!.total).toBe(4.0); // pontua a nova escolha
+  });
 });

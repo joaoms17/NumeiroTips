@@ -1,6 +1,6 @@
 /** Jogos do dia + escolha do jogador (rotativo) + ajudas da roda. Mobile, animado. */
 import { useEffect, useState, type CSSProperties } from 'react';
-import { useGame, allPicks, dayList, matchesOfDay, myPick, mySpin } from '../../game/store';
+import { useGame, allPicks, dayList, matchesOfDay, myPick, mySpin, claimedInMatch, iWasRobbed } from '../../game/store';
 import { isOpen, ratingOf, takenInMatch, usedByFriendOnDay, pickOrder } from '../../game/scoring';
 import { FRIENDS } from '../../game/config';
 import { ajudaMeta } from '../../game/wheel';
@@ -56,8 +56,9 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
   const applyHelp = useGame((s) => s.applyHelp);
   const [picker, setPicker] = useState<null | 'pick' | HelpMode>(null);
 
-  const picked = pick ? findFootballer(match, pick.footballerId) : null;
-  const earned = match.status === 'finished' && pick ? ratingOf(match, pick.footballerId) : null;
+  const robbed = useGame((s) => iWasRobbed(s, match.id));
+  const picked = pick && !robbed ? findFootballer(match, pick.footballerId) : null;
+  const earned = match.status === 'finished' && pick && !robbed ? ratingOf(match, pick.footballerId) : null;
   const order = pickOrder(FRIENDS, [match], match);
 
   const ajuda = spinRec && spinRec.ajuda !== 'nenhuma' ? ajudaMeta(spinRec.ajuda) : null;
@@ -94,6 +95,10 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
 
       {helpHere && (
         <div className="rr-help-here">{ajudaMeta(spinRec!.ajuda).emoji} ajuda aplicada aqui</div>
+      )}
+
+      {robbed && (
+        <div className="rr-robbed">🕵️ Roubaram-te o jogador! {isOpen(match) ? 'Escolhe outro.' : ''}</div>
       )}
 
       {picked ? (
@@ -152,7 +157,8 @@ function PlayerPicker({
   const choose = useGame((s) => s.choose);
   const applyHelp = useGame((s) => s.applyHelp);
   const matches = useGame((s) => s.matches);
-  const taken = takenInMatch(picks, match.id, meId);
+  const claimed = useGame((s) => claimedInMatch(s, match.id, meId)); // picks de outros + roubados
+  const stealable = takenInMatch(picks, match.id, meId); // só dá para roubar picks de outros
   const usedToday = usedByFriendOnDay(picks, matches, meId, match.day, match.id);
   const [q, setQ] = useState('');
 
@@ -169,13 +175,13 @@ function PlayerPicker({
 
   const disabledFor = (f: Footballer): { dis: boolean; tag?: string } => {
     if (mode === 'pick') {
-      if (taken.has(f.id)) return { dis: true, tag: 'tomado' };
+      if (claimed.has(f.id)) return { dis: true, tag: 'tomado' };
       if (usedToday.has(f.id)) return { dis: true, tag: 'usado hoje' };
       return { dis: false };
     }
     if (mode === 'steal') {
       // só dá para roubar jogadores já escolhidos por OUTROS neste jogo
-      return takenInMatch(picks, match.id, meId).has(f.id) ? { dis: false, tag: 'roubar' } : { dis: true };
+      return stealable.has(f.id) ? { dis: false, tag: 'roubar' } : { dis: true };
     }
     return { dis: false }; // second / target: qualquer jogador
   };

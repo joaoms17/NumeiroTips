@@ -10,7 +10,7 @@ import { create } from 'zustand';
 import type { AjudaId, Match, Pick, SpinRec } from './types';
 import { FRIENDS } from './config';
 import { MOCK_MATCHES, MOCK_PICKS } from './mockData';
-import { canPick, byKickoff, standingsWithHelps, helpsFromSpins } from './scoring';
+import { canPick, byKickoff, standingsWithHelps, helpsFromSpins, takenInMatch } from './scoring';
 import { spinAjuda, ajudaMeta } from './wheel';
 
 const LS_ME = 'ratingroyale:me';
@@ -134,10 +134,18 @@ export const useGame = create<GameState>((set, get) => ({
     if (!meId) return;
     const match = matches.find((m) => m.id === matchId);
     if (!match) return;
-    const allPicks = mergePicks(get().userPicks);
-    const check = canPick(allPicks, matches, meId, match, footballerId);
+    const merged = mergePicks(get().userPicks);
+    const check = canPick(merged, matches, meId, match, footballerId);
     if (!check.ok) {
       set({ flash: { kind: 'err', text: check.reason ?? 'Não dá.' } });
+      return;
+    }
+    // jogador roubado por outro neste jogo não pode ser reescolhido
+    const robbed = helpsFromSpins(get().spins).some(
+      (h) => h.ajuda === 'rouba' && h.matchId === matchId && h.friendId !== meId && h.targetFootballerId === footballerId,
+    );
+    if (robbed) {
+      set({ flash: { kind: 'err', text: 'Esse jogador foi roubado — escolhe outro.' } });
       return;
     }
     const key = `${meId}:${matchId}`;
@@ -211,4 +219,22 @@ export function standingsOf(s: GameState) {
 export function mySpin(s: GameState, day: string): SpinRec | undefined {
   if (!s.meId) return undefined;
   return s.spins[`${s.meId}|${day}`];
+}
+/** Jogadores indisponíveis num jogo: escolhidos por outros + roubados. */
+export function claimedInMatch(s: GameState, matchId: string, exceptFriendId: string): Set<string> {
+  const set = takenInMatch(allPicks(s), matchId, exceptFriendId);
+  for (const h of helpsFromSpins(s.spins)) {
+    if (h.ajuda === 'rouba' && h.matchId === matchId && h.friendId !== exceptFriendId && h.targetFootballerId)
+      set.add(h.targetFootballerId);
+  }
+  return set;
+}
+/** O meu jogador deste jogo foi roubado por outro? */
+export function iWasRobbed(s: GameState, matchId: string): boolean {
+  if (!s.meId) return false;
+  const mine = myPick(s, matchId);
+  if (!mine) return false;
+  return helpsFromSpins(s.spins).some(
+    (h) => h.ajuda === 'rouba' && h.matchId === matchId && h.friendId !== s.meId && h.targetFootballerId === mine.footballerId,
+  );
 }
