@@ -1,7 +1,7 @@
 {
-  "name": "NumeiroTips — +EV Terminal",
-  "short_name": "NumeiroTips",
-  "description": "Terminal de value betting (+EV) em tempo real",
+  "name": "Rating Royale",
+  "short_name": "Rating Royale",
+  "description": "Bolão de ratings do Mundial 2026 entre amigos",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -9,7 +9,7 @@
   "background_color": "#0a0e14",
   "theme_color": "#0a0e14",
   "lang": "pt",
-  "categories": ["sports", "finance", "utilities"],
+  "categories": ["sports", "games"],
   "icons": [
     {
       "src": "/icon.svg",

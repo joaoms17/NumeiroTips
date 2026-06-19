@@ -1,9 +1,39 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#0a0e14"/>
-  <rect x="40" y="40" width="432" height="432" rx="88" fill="none" stroke="#161d29" stroke-width="6"/>
-  <!-- linha tipo "value chart" dentro da zona segura (maskable) -->
-  <path d="M104 360 L184 200 L264 300 L344 120 L408 360"
-        fill="none" stroke="#2ee6a6" stroke-width="34"
-        stroke-linejoin="round" stroke-linecap="round"/>
-  <circle cx="344" cy="120" r="34" fill="#2ee6a6"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#121a28"/>
+      <stop offset="1" stop-color="#0a0e14"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="0.55" stop-color="#ffc24d"/>
+      <stop offset="1" stop-color="#f0a32e"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.4" r="0.62">
+      <stop offset="0" stop-color="#39bae6" stop-opacity="0.28"/>
+      <stop offset="0.6" stop-color="#b083f0" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#39bae6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="220" r="190" fill="url(#glow)"/>
+
+  <!-- coroa (dentro da zona segura maskable) -->
+  <g stroke="#9a6a1e" stroke-width="7" stroke-linejoin="round">
+    <path d="M150 352 L126 222 L200 292 L256 192 L312 292 L386 222 L362 352 Z" fill="url(#gold)"/>
+    <rect x="150" y="350" width="212" height="46" rx="12" fill="url(#gold)"/>
+  </g>
+
+  <!-- gemas dos picos -->
+  <g fill="#fff6d6" stroke="#9a6a1e" stroke-width="4">
+    <circle cx="126" cy="222" r="17"/>
+    <circle cx="256" cy="192" r="19"/>
+    <circle cx="386" cy="222" r="17"/>
+  </g>
+
+  <!-- gemas da base -->
+  <circle cx="256" cy="373" r="11" fill="#ff5470"/>
+  <circle cx="206" cy="373" r="9" fill="#39bae6"/>
+  <circle cx="306" cy="373" r="9" fill="#2ee6a6"/>
 </svg>
