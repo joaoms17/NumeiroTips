@@ -530,7 +530,6 @@ function AdminImport({ onClose }: { onClose: () => void }) {
   };
 
   const removeItem = (idx: number) => setReview((r) => r ? r.filter((_, i) => i !== idx) : r);
-
   const save = () => {
     if (!match || !review) return;
     const home: Footballer[] = [];
