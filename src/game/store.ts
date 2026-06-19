@@ -257,7 +257,8 @@ export const useGame = create<GameState>((set, get) => ({
     // pode reescolher livremente, sem ficar trancado.
     const lineupIds = new Set([...match.lineup.home, ...match.lineup.away].map((f) => f.id));
     const myRec = cur.find((p) => p.matchId === matchId && p.friendId === meId);
-    const alreadyPicked = !!myRec && lineupIds.has(myRec.footballerId);
+    // pick órfão (jogador sumiu) OU roubado → não conta como escolha: reescolhe livremente
+    const alreadyPicked = !!myRec && lineupIds.has(myRec.footballerId) && !iWasRobbed(s, matchId);
     if (alreadyPicked) {
       // trocar: só enquanto ninguém a seguir já tiver escolhido
       if (!canChangePick(cur, order, matchId, meId)) {
@@ -335,7 +336,7 @@ export const useGame = create<GameState>((set, get) => ({
       return;
     }
     const match = matches.find((m) => m.id === matchId);
-    if (!match || match.status !== 'upcoming') {
+    if (!match || hasStarted(match)) {
       set({ flash: { kind: 'err', text: 'Esse jogo já fechou.' } });
       return;
     }
