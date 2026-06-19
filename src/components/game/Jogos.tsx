@@ -164,7 +164,6 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
       ) : picked ? (
         <div className="rr-mypick">
           <div className="rr-mypick-info">
-            <span className="rr-pos">{picked.pos}</span>
             <span className="rr-pl-name">{picked.name}</span>
             <span className="rr-pl-team"><Flag cc={teamByCode(match, picked.team).cc} flag={teamByCode(match, picked.team).flag} name={picked.team} /></span>
           </div>
@@ -288,7 +287,6 @@ function PlayerPicker({
                     disabled={dis}
                     onClick={() => select(p)}
                   >
-                    <span className="rr-pos">{p.pos}</span>
                     <span className="rr-pl-name">{p.name}</span>
                     {isStarter && <span className="rr-tag-start">titular</span>}
                     <span className="rr-pl-num">#{p.number}</span>
@@ -361,7 +359,6 @@ function RevealPicks({ match, picks, meId }: { match: Match; picks: ReturnType<t
             <span className="rr-reveal-chip" style={{ '--c': f.color } as CSSProperties}>{f.initials}</span>
             {fb ? (
               <>
-                <span className="rr-pos">{fb.pos}</span>
                 <span className="rr-reveal-name">{fb.name}</span>
                 <span className="rr-reveal-team">
                   <Flag cc={teamByCode(match, fb.team).cc} flag={teamByCode(match, fb.team).flag} name={fb.team} />
