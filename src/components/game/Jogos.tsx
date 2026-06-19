@@ -88,6 +88,7 @@ export function Jogos() {
 function MatchCard({ match, meId, index }: { match: Match; meId: string; index: number }) {
   const pick = useGame((s) => myPick(s, match.id));
   const picks = useGame(allPicks);
+  const allMatches = useGame((s) => s.matches);
   const spinRec = useGame((s) => mySpin(s, match.day));
   const applyHelp = useGame((s) => s.applyHelp);
   const [picker, setPicker] = useState<null | 'pick' | HelpMode>(null);
@@ -98,7 +99,7 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
   // nota AO VIVO do meu jogador (ainda não somada) — só durante o jogo
   const liveRating =
     match.status === 'live' && pick && !robbed ? match.ratings?.[pick.footballerId] ?? null : null;
-  const order = pickOrder(FRIENDS, [match], match);
+  const order = pickOrder(FRIENDS, allMatches, match);
 
   const ajuda = spinRec && spinRec.ajuda !== 'nenhuma' ? ajudaMeta(spinRec.ajuda) : null;
   const helpUnused = !!ajuda && !spinRec!.matchId;
@@ -128,8 +129,8 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
 
       <div className="rr-order">
         {order.map((f, i) => (
-          <span key={f.id} className="rr-order-chip" style={{ '--c': f.color } as CSSProperties} title={`${i + 1}º a escolher`}>
-            {f.emoji}
+          <span key={f.id} className="rr-order-chip" style={{ '--c': f.color } as CSSProperties} title={`${i + 1}º a escolher — ${f.name}`}>
+            {f.initials}
           </span>
         ))}
         <span className="rr-order-lbl muted">ordem de escolha</span>

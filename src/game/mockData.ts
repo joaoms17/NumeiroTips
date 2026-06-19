@@ -10,6 +10,7 @@
  */
 import type { Footballer, Match, NationTeam, Pos } from './types';
 import { EXTRA_SQUADS } from './squads2026';
+import { footballDay } from './format';
 
 const T = (code: string, name: string, flag: string): NationTeam => ({ code, name, flag });
 
@@ -191,11 +192,12 @@ function squadOrGeneric(code: string): Footballer[] {
   return GENERIC.map(([pos, name], i) => ({ id: `${code}-${i + 1}`, name, team: code, pos, number: i + 1 }));
 }
 
-function mk(id: string, day: string, time: string, homeCode: string, awayCode: string): Match {
+function mk(id: string, calDay: string, time: string, homeCode: string, awayCode: string): Match {
+  const kickoff = `${calDay}T${time}:00+01:00`; // hora real de início (Portugal, WEST)
   return {
     id,
-    day,
-    kickoff: `${day}T${time}:00+01:00`, // hora de Portugal (WEST, UTC+1)
+    day: footballDay(kickoff), // agrupa pelo "dia de futebol" (corte às 7h)
+    kickoff,
     stage: 'Fase de grupos',
     home: TEAMS[homeCode],
     away: TEAMS[awayCode],

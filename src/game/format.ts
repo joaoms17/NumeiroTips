@@ -1,15 +1,29 @@
-/** Formatação de datas/horas do RATING ROYALE. Dias agrupados no fuso dos EUA. */
-import { USA_TZ } from './config';
+/**
+ * Formatação de datas/horas do RATING ROYALE.
+ * O "dia de futebol" vai das 07:00 às 07:00 do dia seguinte (hora de Portugal):
+ * as madrugadas contam para o dia anterior (jogos do dia + reset da roda às 7h).
+ */
+export const PT_TZ = 'Europe/Lisbon';
+const DAY_CUTOFF_H = 7;
 
-/** Data de hoje (YYYY-MM-DD) no fuso dos EUA. */
-export function usTodayStr(now = new Date()): string {
-  const f = new Intl.DateTimeFormat('en-CA', {
-    timeZone: USA_TZ,
+function ymdInTz(d: Date, tz = PT_TZ): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  });
-  return f.format(now); // en-CA → YYYY-MM-DD
+  }).format(d); // en-CA → YYYY-MM-DD
+}
+
+/** Dia de futebol (YYYY-MM-DD) de um instante: <07:00 conta para o dia anterior. */
+export function footballDay(when: string | Date, tz = PT_TZ): string {
+  const t = (typeof when === 'string' ? new Date(when) : when).getTime();
+  return ymdInTz(new Date(t - DAY_CUTOFF_H * 3_600_000), tz);
+}
+
+/** Dia de futebol de hoje (YYYY-MM-DD). */
+export function usTodayStr(now = new Date()): string {
+  return footballDay(now);
 }
 
 /** Rótulo curto de um dia 'YYYY-MM-DD' (ex.: "qua, 18 jun"). */
