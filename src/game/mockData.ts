@@ -1,13 +1,15 @@
 /**
- * Dados FALLBACK do Mundial 2026 — usados quando a API-Football não devolve
- * jogos (ex.: plano grátis não cobre a época 2026). Mantém o jogo totalmente
- * jogável: jogos com datas/estados realistas, notas nos jogos terminados e
- * PLANTÉIS COMPLETOS (todos os convocados) para se poder escolher qualquer um.
+ * Jogos reais do Mundial 2026 (calendário) + plantéis das seleções.
+ * =================================================================
+ * O calendário (FALLBACK_MATCHES) é a fonte base da app: a API-Football no
+ * plano grátis não cobre 2026, por isso os jogos vêm daqui. As NOTAS e os
+ * ONZES entram depois pelo painel de admin (importação manual → Supabase).
  *
- * Os plantéis são indicativos (nomes reais, números podem variar). Quando a API
- * tiver dados reais (plano pago / época disponível), estes são substituídos.
+ * Plantéis: 10 seleções "fortes" com onze provável aqui + as restantes em
+ * squads2026.ts. Seleções sem plantel caem em nomes genéricos.
  */
 import type { Footballer, Match, NationTeam, Pos } from './types';
+import { EXTRA_SQUADS } from './squads2026';
 
 const T = (code: string, name: string, flag: string): NationTeam => ({ code, name, flag });
 
@@ -22,6 +24,37 @@ export const TEAMS: Record<string, NationTeam> = {
   MEX: T('MEX', 'México', '🇲🇽'),
   USA: T('USA', 'EUA', '🇺🇸'),
   CRO: T('CRO', 'Croácia', '🇭🇷'),
+  AUS: T('AUS', 'Austrália', '🇦🇺'),
+  SCO: T('SCO', 'Escócia', '🏴󠁧󠁢󠁳󠁣󠁴󠁿'),
+  MAR: T('MAR', 'Marrocos', '🇲🇦'),
+  HAI: T('HAI', 'Haiti', '🇭🇹'),
+  TUR: T('TUR', 'Turquia', '🇹🇷'),
+  PAR: T('PAR', 'Paraguai', '🇵🇾'),
+  SWE: T('SWE', 'Suécia', '🇸🇪'),
+  GER: T('GER', 'Alemanha', '🇩🇪'),
+  CIV: T('CIV', 'Costa do Marfim', '🇨🇮'),
+  ECU: T('ECU', 'Equador', '🇪🇨'),
+  CUW: T('CUW', 'Curaçao', '🇨🇼'),
+  TUN: T('TUN', 'Tunísia', '🇹🇳'),
+  JPN: T('JPN', 'Japão', '🇯🇵'),
+  KSA: T('KSA', 'Arábia Saudita', '🇸🇦'),
+  BEL: T('BEL', 'Bélgica', '🇧🇪'),
+  IRN: T('IRN', 'Irão', '🇮🇷'),
+  URU: T('URU', 'Uruguai', '🇺🇾'),
+  CPV: T('CPV', 'Cabo Verde', '🇨🇻'),
+  NZL: T('NZL', 'Nova Zelândia', '🇳🇿'),
+  EGY: T('EGY', 'Egito', '🇪🇬'),
+  AUT: T('AUT', 'Áustria', '🇦🇹'),
+  IRQ: T('IRQ', 'Iraque', '🇮🇶'),
+  NOR: T('NOR', 'Noruega', '🇳🇴'),
+  SEN: T('SEN', 'Senegal', '🇸🇳'),
+  JOR: T('JOR', 'Jordânia', '🇯🇴'),
+  ALG: T('ALG', 'Argélia', '🇩🇿'),
+  UZB: T('UZB', 'Usbequistão', '🇺🇿'),
+  GHA: T('GHA', 'Gana', '🇬🇭'),
+  PAN: T('PAN', 'Panamá', '🇵🇦'),
+  COL: T('COL', 'Colômbia', '🇨🇴'),
+  COD: T('COD', 'RD Congo', '🇨🇩'),
 };
 
 function pl(team: string, name: string, pos: Pos, number: number): Footballer {
@@ -139,83 +172,64 @@ const SQUADS: Record<string, Footballer[]> = {
   ],
 };
 
+/** Plantel de uma seleção (curado aqui, ou em squads2026, ou vazio). */
 export function squad(code: string): Footballer[] {
-  return SQUADS[code] ?? [];
+  return SQUADS[code] ?? EXTRA_SQUADS[code] ?? [];
 }
 
-function mk(
-  id: string,
-  day: string,
-  kickoff: string,
-  stage: string,
-  homeCode: string,
-  awayCode: string,
-  status: Match['status'],
-  extra: Partial<Match> = {},
-): Match {
+const GENERIC: Array<[Pos, string]> = [
+  ['GR', 'Guarda-redes'],
+  ['DEF', 'Defesa 1'], ['DEF', 'Defesa 2'], ['DEF', 'Defesa 3'], ['DEF', 'Defesa 4'],
+  ['MED', 'Médio 1'], ['MED', 'Médio 2'], ['MED', 'Médio 3'],
+  ['AVA', 'Avançado 1'], ['AVA', 'Avançado 2'], ['AVA', 'Avançado 3'],
+];
+
+/** Plantel real se existir; senão nomes genéricos (para a app ser jogável). */
+function squadOrGeneric(code: string): Footballer[] {
+  const s = squad(code);
+  if (s.length > 0) return s;
+  return GENERIC.map(([pos, name], i) => ({ id: `${code}-${i + 1}`, name, team: code, pos, number: i + 1 }));
+}
+
+function mk(id: string, day: string, time: string, homeCode: string, awayCode: string): Match {
   return {
     id,
     day,
-    kickoff,
-    stage,
+    kickoff: `${day}T${time}:00+01:00`, // hora de Portugal (WEST, UTC+1)
+    stage: 'Fase de grupos',
     home: TEAMS[homeCode],
     away: TEAMS[awayCode],
-    status,
-    lineup: { home: squad(homeCode), away: squad(awayCode) },
-    ...extra,
+    status: 'upcoming',
+    lineup: { home: squadOrGeneric(homeCode), away: squadOrGeneric(awayCode) },
   };
 }
 
-/** Jogos fallback do Mundial 2026 (terminados com notas + ao vivo + por jogar). */
+/** Calendário real do Mundial 2026 (hora de Portugal). */
 export const FALLBACK_MATCHES: Match[] = [
-  // ---- 16 jun (terminado) ----
-  mk('fb-por-cro', '2026-06-16', '2026-06-16T19:00:00Z', 'Grupo F', 'POR', 'CRO', 'finished', {
-    homeGoals: 3, awayGoals: 0,
-    ratings: {
-      'POR-7': 8.4, 'POR-8': 7.9, 'POR-15': 7.2, 'POR-3': 7.0, 'POR-16': 7.5,
-      'CRO-10': 7.5, 'CRO-9': 6.6, 'CRO-1': 6.8,
-    },
-  }),
-  mk('fb-bra-mex', '2026-06-16', '2026-06-16T22:00:00Z', 'Grupo C', 'BRA', 'MEX', 'finished', {
-    homeGoals: 2, awayGoals: 1,
-    ratings: {
-      'BRA-20': 8.1, 'BRA-10': 7.6, 'BRA-19': 7.4, 'BRA-1': 6.8,
-      'MEX-22': 7.0, 'MEX-9': 7.3, 'MEX-13': 6.5,
-    },
-  }),
-  // ---- 17 jun (terminado) ----
-  mk('fb-fra-esp', '2026-06-17', '2026-06-17T21:00:00Z', 'Grupo D', 'FRA', 'ESP', 'finished', {
-    homeGoals: 2, awayGoals: 2,
-    ratings: {
-      'ESP-19': 8.3, 'FRA-10': 8.0, 'ESP-8': 7.4, 'FRA-7': 7.1, 'ESP-7': 6.9,
-      'FRA-11': 7.3, 'ESP-16': 7.8,
-    },
-  }),
-  mk('fb-arg-usa', '2026-06-17', '2026-06-17T23:00:00Z', 'Grupo A', 'ARG', 'USA', 'finished', {
-    homeGoals: 1, awayGoals: 0,
-    ratings: {
-      'ARG-10': 8.2, 'ARG-9': 7.6, 'ARG-23': 7.0, 'ARG-13': 7.2,
-      'USA-10': 7.1, 'USA-9': 6.4,
-    },
-  }),
-  // ---- 18 jun (terminado) ----
-  mk('fb-eng-ned', '2026-06-18', '2026-06-18T21:00:00Z', 'Grupo E', 'ENG', 'NED', 'finished', {
-    homeGoals: 2, awayGoals: 1,
-    ratings: {
-      'ENG-9': 7.8, 'ENG-10': 8.1, 'ENG-7': 7.5, 'ENG-1': 6.7,
-      'NED-10': 7.0, 'NED-7': 7.3, 'NED-4': 6.9,
-    },
-  }),
-  // ---- 19 jun (hoje) ----
-  mk('fb-esp-mex', '2026-06-19', '2026-06-19T18:00:00Z', 'Grupo B', 'ESP', 'MEX', 'live', {
-    minute: 57, homeGoals: 1, awayGoals: 0,
-  }),
-  mk('fb-fra-bra', '2026-06-19', '2026-06-19T20:00:00Z', 'Grupo D', 'FRA', 'BRA', 'upcoming'),
-  mk('fb-por-arg', '2026-06-19', '2026-06-19T22:00:00Z', 'Grupo F', 'POR', 'ARG', 'upcoming'),
-  // ---- 20 jun (amanhã) ----
-  mk('fb-eng-usa', '2026-06-20', '2026-06-20T19:00:00Z', 'Grupo E', 'ENG', 'USA', 'upcoming'),
-  mk('fb-ned-cro', '2026-06-20', '2026-06-20T22:00:00Z', 'Grupo G', 'NED', 'CRO', 'upcoming'),
-  // ---- 21 jun ----
-  mk('fb-bra-esp', '2026-06-21', '2026-06-21T19:00:00Z', 'Grupo C', 'BRA', 'ESP', 'upcoming'),
-  mk('fb-arg-mex', '2026-06-21', '2026-06-21T22:00:00Z', 'Grupo A', 'ARG', 'MEX', 'upcoming'),
+  // ---- sexta 19 jun ----
+  mk('wc-usa-aus', '2026-06-19', '20:00', 'USA', 'AUS'),
+  mk('wc-sco-mar', '2026-06-19', '23:00', 'SCO', 'MAR'),
+  // ---- sábado 20 jun ----
+  mk('wc-bra-hai', '2026-06-20', '01:30', 'BRA', 'HAI'),
+  mk('wc-tur-par', '2026-06-20', '04:00', 'TUR', 'PAR'),
+  mk('wc-ned-swe', '2026-06-20', '18:00', 'NED', 'SWE'),
+  mk('wc-ger-civ', '2026-06-20', '21:00', 'GER', 'CIV'),
+  // ---- domingo 21 jun ----
+  mk('wc-ecu-cuw', '2026-06-21', '01:00', 'ECU', 'CUW'),
+  mk('wc-tun-jpn', '2026-06-21', '05:00', 'TUN', 'JPN'),
+  mk('wc-esp-ksa', '2026-06-21', '17:00', 'ESP', 'KSA'),
+  mk('wc-bel-irn', '2026-06-21', '20:00', 'BEL', 'IRN'),
+  mk('wc-uru-cpv', '2026-06-21', '23:00', 'URU', 'CPV'),
+  // ---- segunda 22 jun ----
+  mk('wc-nzl-egy', '2026-06-22', '02:00', 'NZL', 'EGY'),
+  mk('wc-arg-aut', '2026-06-22', '18:00', 'ARG', 'AUT'),
+  mk('wc-fra-irq', '2026-06-22', '22:00', 'FRA', 'IRQ'),
+  // ---- terça 23 jun ----
+  mk('wc-nor-sen', '2026-06-23', '01:00', 'NOR', 'SEN'),
+  mk('wc-jor-alg', '2026-06-23', '04:00', 'JOR', 'ALG'),
+  mk('wc-por-uzb', '2026-06-23', '18:00', 'POR', 'UZB'),
+  mk('wc-eng-gha', '2026-06-23', '21:00', 'ENG', 'GHA'),
+  // ---- quarta 24 jun ----
+  mk('wc-pan-cro', '2026-06-24', '00:00', 'PAN', 'CRO'),
+  mk('wc-col-cod', '2026-06-24', '03:00', 'COL', 'COD'),
 ];
