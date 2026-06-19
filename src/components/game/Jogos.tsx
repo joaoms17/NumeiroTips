@@ -379,20 +379,102 @@ function RevealPicks({ match, picks, meId }: { match: Match; picks: ReturnType<t
   );
 }
 
-/** Painel admin: cola um (ou vários) patch(es) JSON com onze + notas. */
+/** Reduz uma imagem e devolve base64 JPEG (sem prefixo), p/ enviar à visão AI. */
+async function fileToJpegBase64(file: File, maxW = 1280): Promise<string> {
+  const dataUrl: string = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result as string);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+  const img: HTMLImageElement = await new Promise((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = rej;
+    i.src = dataUrl;
+  });
+  const scale = Math.min(1, maxW / (img.width || maxW));
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+}
+
+interface VisionPlayer { side?: string; number?: number | null; name?: string; rating?: number | null; starter?: boolean }
+
+/** Constrói o patch (onze + notas) a partir dos jogadores lidos pela visão. */
+function patchFromVision(match: Match, players: VisionPlayer[]): MatchPatch {
+  const home: Footballer[] = [];
+  const away: Footballer[] = [];
+  const ratings: Record<string, number> = {};
+  const starters: string[] = [];
+  for (const p of players) {
+    if (typeof p.number !== 'number' || !p.name) continue; // precisa de número p/ id estável
+    const code = p.side === 'away' ? match.away.code : match.home.code;
+    const id = `${code}-${p.number}`;
+    const fb: Footballer = { id, name: p.name, team: code, pos: 'MED', number: p.number };
+    (p.side === 'away' ? away : home).push(fb);
+    if (typeof p.rating === 'number' && p.rating > 0) ratings[id] = Math.round(p.rating * 10) / 10;
+    if (p.starter !== false) starters.push(id);
+  }
+  return {
+    matchId: match.id,
+    lineupConfirmed: starters.length > 0,
+    ratings: Object.keys(ratings).length ? ratings : undefined,
+    lineup: { home, away },
+    starters: starters.length ? starters : undefined,
+  };
+}
+
+/** Painel admin: importa onze + notas por IMAGEM (visão AI) ou colando JSON. */
 function AdminImport({ onClose }: { onClose: () => void }) {
   const savePatch = useGame((s) => s.savePatch);
   const setFlash = useGame((s) => s.setFlash);
-  const matchIds = useGame((s) => new Set(s.matches.map((m) => m.id)));
+  const matches = useGame((s) => s.matches);
+  const matchIds = new Set(matches.map((m) => m.id));
+  const [matchId, setMatchId] = useState(
+    () => matches.find((m) => !hasStarted(m))?.id ?? matches[0]?.id ?? '',
+  );
+  const [files, setFiles] = useState<File[]>([]);
+  const [busy, setBusy] = useState(false);
   const [text, setText] = useState('');
   const [err, setErr] = useState<string | null>(null);
+
+  const match = matches.find((m) => m.id === matchId);
+
+  const extract = async () => {
+    if (!match || files.length === 0) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const images = await Promise.all(files.slice(0, 3).map((f) => fileToJpegBase64(f)));
+      const res = await fetch('/api/vision', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ images, mime: 'image/jpeg', homeName: match.home.name, awayName: match.away.name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+      const players: VisionPlayer[] = Array.isArray(data.players) ? data.players : [];
+      if (players.length === 0) throw new Error('não li jogadores na imagem');
+      setText(JSON.stringify(patchFromVision(match, players), null, 2));
+      setFlash({ kind: 'ok', text: `📷 Li ${players.length} jogadores — confere e grava.` });
+    } catch (e) {
+      setErr(`Não consegui ler a imagem: ${(e as Error).message}. Podes colar o bloco à mão.`);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const apply = () => {
     let data: unknown;
     try {
       data = JSON.parse(text);
     } catch {
-      setErr('JSON inválido — confirma que colaste o bloco todo.');
+      setErr('JSON inválido — confirma que está tudo.');
       return;
     }
     const list = (Array.isArray(data) ? data : [data]) as MatchPatch[];
@@ -419,17 +501,38 @@ function AdminImport({ onClose }: { onClose: () => void }) {
           <span>✏️ Importar onze + notas (admin)</span>
           <button className="rr-x" onClick={onClose}>✕</button>
         </div>
+
         <p className="rr-admin-help muted">
-          Manda-me um print do FlashScore e eu dou-te o bloco. Cola-o aqui e grava —
-          fica visível para os 4 em tempo real.
+          📷 Escolhe o jogo, mete o(s) print(s) do FlashScore e carrega em <b>Extrair</b> — a IA lê o
+          onze e as notas. Confere o resultado e grava (fica visível para os 4 em tempo real).
         </p>
+
+        <label className="rr-admin-lbl">Jogo</label>
+        <select className="rr-admin-select" value={matchId} onChange={(e) => setMatchId(e.target.value)}>
+          {matches.map((m) => (
+            <option key={m.id} value={m.id}>{m.home.name} × {m.away.name} · {dayLabel(m.day)}</option>
+          ))}
+        </select>
+
+        <label className="rr-admin-lbl">Print(s) — onze e/ou notas (até 2-3)</label>
+        <input
+          className="rr-admin-file"
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={(e) => { setFiles(Array.from(e.target.files ?? [])); setErr(null); }}
+        />
+        <button className="rr-admin-extract" onClick={extract} disabled={!match || files.length === 0 || busy}>
+          {busy ? <span className="rr-spinner sm" /> : '📷'} Extrair da imagem
+        </button>
+
+        <label className="rr-admin-lbl">Bloco (gerado pela imagem ou colado)</label>
         <textarea
           className="rr-admin-text"
-          placeholder={'{\n  "matchId": "fb-esp-mex",\n  "lineupConfirmed": true,\n  "ratings": { "ESP-19": 8.3, "MEX-9": 7.1 }\n}'}
+          placeholder={'{\n  "matchId": "wc-bra-hai",\n  "lineupConfirmed": true,\n  "ratings": { "BRA-26": 8.3 }\n}'}
           value={text}
           onChange={(e) => { setText(e.target.value); setErr(null); }}
-          rows={10}
-          autoFocus
+          rows={9}
         />
         {err && <div className="rr-admin-err">{err}</div>}
         <button className="rr-admin-save" onClick={apply} disabled={!text.trim()}>
