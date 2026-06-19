@@ -5,7 +5,7 @@ import { isOpen, ratingOf, takenInMatch, usedByFriendOnDay, pickOrder } from '..
 import { FRIENDS } from '../../game/config';
 import { ajudaMeta } from '../../game/wheel';
 import { dayLabel, dayNum, kickLabel, relToday } from '../../game/format';
-import type { Footballer, Match } from '../../game/types';
+import type { Footballer, Match, MatchPatch } from '../../game/types';
 import { RodaBanner } from './Roda';
 
 type HelpMode = 'second' | 'target' | 'steal';
@@ -17,6 +17,10 @@ export function Jogos() {
   const days = useGame(dayList);
   const matches = useGame((s) => matchesOfDay(s, selectedDay));
   const fixturesStatus = useGame((s) => s.fixturesStatus);
+  const refreshFixtures = useGame((s) => s.refreshFixtures);
+  const isAdmin = meId === 'joao';
+  const refreshing = fixturesStatus === 'loading';
+  const [importing, setImporting] = useState(false);
 
   if (days.length === 0) {
     return (
@@ -55,7 +59,21 @@ export function Jogos() {
 
       <RodaBanner day={selectedDay} />
 
-      <div className="rr-day-title">{dayLabel(selectedDay)}</div>
+      <div className="rr-day-head">
+        <span className="rr-day-title">{dayLabel(selectedDay)}</span>
+        {isAdmin && (
+          <div className="rr-admin-actions">
+            <button className="rr-refresh" onClick={() => setImporting(true)} title="Importar onze/notas (admin)">
+              ✏️ dados
+            </button>
+            <button className="rr-refresh" onClick={refreshFixtures} disabled={refreshing} title="Forçar atualização (admin)">
+              {refreshing ? <span className="rr-spinner sm" /> : '🔄'} atualizar
+            </button>
+          </div>
+        )}
+      </div>
+
+      {importing && <AdminImport onClose={() => setImporting(false)} />}
 
       <div className="rr-cards">
         {matches.map((m, i) => (
@@ -77,6 +95,9 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
   const robbed = useGame((s) => iWasRobbed(s, match.id));
   const picked = pick && !robbed ? findFootballer(match, pick.footballerId) : null;
   const earned = match.status === 'finished' && pick && !robbed ? ratingOf(match, pick.footballerId) : null;
+  // nota AO VIVO do meu jogador (ainda não somada) — só durante o jogo
+  const liveRating =
+    match.status === 'live' && pick && !robbed ? match.ratings?.[pick.footballerId] ?? null : null;
   const order = pickOrder(FRIENDS, [match], match);
 
   const ajuda = spinRec && spinRec.ajuda !== 'nenhuma' ? ajudaMeta(spinRec.ajuda) : null;
@@ -92,7 +113,10 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
   return (
     <div className={`rr-card slide-up status-${match.status}`} style={{ animationDelay: `${index * 60}ms` }}>
       <div className="rr-card-top">
-        <span className="rr-stage">{match.stage}</span>
+        <span className="rr-stage">
+          {match.stage}
+          {match.lineupConfirmed && <span className="rr-lineup-badge" title="Onze oficial já anunciado">✅ onze oficial</span>}
+        </span>
         <MatchState match={match} />
       </div>
 
@@ -128,6 +152,8 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
           </div>
           {earned != null ? (
             <span className="rr-earned"><CountUp value={earned} /> <small>pts</small></span>
+          ) : liveRating != null ? (
+            <span className="rr-earned live"><CountUp value={liveRating} /> <small>ao vivo</small></span>
           ) : isOpen(match) ? (
             <button className="rr-change" onClick={() => setPicker('pick')}>trocar</button>
           ) : (
@@ -182,9 +208,15 @@ function PlayerPicker({
   const usedToday = usedByFriendOnDay(picks, matches, meId, match.day, match.id);
   const [q, setQ] = useState('');
 
+  const starters = new Set(match.starters ?? []);
   const candidates = [...match.lineup.home, ...match.lineup.away].filter((p) =>
     p.name.toLowerCase().includes(q.toLowerCase()),
   );
+  // titulares primeiro (quando o onze já foi importado)
+  const byTeam = (code: string) =>
+    candidates
+      .filter((p) => p.team === code)
+      .sort((a, b) => Number(starters.has(b.id)) - Number(starters.has(a.id)));
 
   const select = (f: Footballer) => {
     if (mode === 'pick') choose(match.id, f.id);
@@ -230,25 +262,28 @@ function PlayerPicker({
         <div className="rr-pl-list">
           {[match.home, match.away].map((team) => (
             <div key={team.code}>
-              <div className="rr-pl-group">{team.flag} {team.name}</div>
-              {candidates
-                .filter((p) => p.team === team.code)
-                .map((p) => {
-                  const { dis, tag } = disabledFor(p);
-                  return (
-                    <button
-                      key={p.id}
-                      className={`rr-pl-row ${dis ? 'dis' : ''}`}
-                      disabled={dis}
-                      onClick={() => select(p)}
-                    >
-                      <span className="rr-pos">{p.pos}</span>
-                      <span className="rr-pl-name">{p.name}</span>
-                      <span className="rr-pl-num">#{p.number}</span>
-                      {tag && <span className={tag === 'tomado' ? 'rr-tag-taken' : tag === 'roubar' ? 'rr-tag-steal' : 'rr-tag-used'}>{tag}</span>}
-                    </button>
-                  );
-                })}
+              <div className="rr-pl-group">
+                {team.flag} {team.name}
+                {match.lineupConfirmed && starters.size > 0 && <span className="rr-pl-group-xi">onze oficial ✅</span>}
+              </div>
+              {byTeam(team.code).map((p) => {
+                const { dis, tag } = disabledFor(p);
+                const isStarter = starters.has(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    className={`rr-pl-row ${dis ? 'dis' : ''} ${isStarter ? 'starter' : ''}`}
+                    disabled={dis}
+                    onClick={() => select(p)}
+                  >
+                    <span className="rr-pos">{p.pos}</span>
+                    <span className="rr-pl-name">{p.name}</span>
+                    {isStarter && <span className="rr-tag-start">titular</span>}
+                    <span className="rr-pl-num">#{p.number}</span>
+                    {tag && <span className={tag === 'tomado' ? 'rr-tag-taken' : tag === 'roubar' ? 'rr-tag-steal' : 'rr-tag-used'}>{tag}</span>}
+                  </button>
+                );
+              })}
             </div>
           ))}
         </div>
@@ -296,4 +331,65 @@ function findFootballer(match: Match, id: string): Footballer | null {
 }
 function teamFlag(match: Match, code: string): string {
   return match.home.code === code ? match.home.flag : match.away.flag;
+}
+
+/** Painel admin: cola um (ou vários) patch(es) JSON com onze + notas. */
+function AdminImport({ onClose }: { onClose: () => void }) {
+  const savePatch = useGame((s) => s.savePatch);
+  const setFlash = useGame((s) => s.setFlash);
+  const matchIds = useGame((s) => new Set(s.matches.map((m) => m.id)));
+  const [text, setText] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+
+  const apply = () => {
+    let data: unknown;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      setErr('JSON inválido — confirma que colaste o bloco todo.');
+      return;
+    }
+    const list = (Array.isArray(data) ? data : [data]) as MatchPatch[];
+    const valid = list.filter((p) => p && typeof p.matchId === 'string');
+    if (valid.length === 0) {
+      setErr('Sem "matchId" — o bloco não parece um patch de jogo.');
+      return;
+    }
+    const unknown = valid.filter((p) => !matchIds.has(p.matchId)).map((p) => p.matchId);
+    valid.forEach((p) => savePatch(p));
+    onClose();
+    setFlash({
+      kind: unknown.length ? 'err' : 'ok',
+      text: unknown.length
+        ? `Guardei ${valid.length}, mas estes IDs não existem: ${unknown.join(', ')}`
+        : `✅ ${valid.length} jogo(s) atualizado(s)!`,
+    });
+  };
+
+  return (
+    <div className="rr-modal" onClick={onClose}>
+      <div className="rr-sheet slide-in" onClick={(e) => e.stopPropagation()}>
+        <div className="rr-sheet-h">
+          <span>✏️ Importar onze + notas (admin)</span>
+          <button className="rr-x" onClick={onClose}>✕</button>
+        </div>
+        <p className="rr-admin-help muted">
+          Manda-me um print do FlashScore e eu dou-te o bloco. Cola-o aqui e grava —
+          fica visível para os 4 em tempo real.
+        </p>
+        <textarea
+          className="rr-admin-text"
+          placeholder={'{\n  "matchId": "fb-esp-mex",\n  "lineupConfirmed": true,\n  "ratings": { "ESP-19": 8.3, "MEX-9": 7.1 }\n}'}
+          value={text}
+          onChange={(e) => { setText(e.target.value); setErr(null); }}
+          rows={10}
+          autoFocus
+        />
+        {err && <div className="rr-admin-err">{err}</div>}
+        <button className="rr-admin-save" onClick={apply} disabled={!text.trim()}>
+          Gravar e partilhar
+        </button>
+      </div>
+    </div>
+  );
 }

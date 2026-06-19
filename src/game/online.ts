@@ -8,7 +8,7 @@
  * Tabelas (ver supabase/ratingroyale.sql): rr_picks, rr_spins.
  */
 import { getSupabase } from '../lib/supabase';
-import type { Pick, SpinRec } from './types';
+import type { Footballer, MatchPatch, Pick, SpinRec } from './types';
 
 /** Liga partilhada pelos 4 (uma só, privada). */
 export const LEAGUE = 'mundial2026';
@@ -54,6 +54,45 @@ export async function pushPick(p: Pick): Promise<void> {
   );
 }
 
+interface RatingRow {
+  match_id: string;
+  lineup_confirmed: boolean;
+  ratings: Record<string, number> | null;
+  lineup: { home: Footballer[]; away: Footballer[] } | null;
+}
+
+/** Vai buscar todos os patches manuais (onze + notas) de um jogo. */
+export async function fetchPatches(): Promise<Record<string, MatchPatch>> {
+  const supa = getSupabase();
+  if (!supa) return {};
+  const res = await supa.from('rr_ratings').select('*').eq('league', LEAGUE);
+  const out: Record<string, MatchPatch> = {};
+  for (const r of (res.data ?? []) as RatingRow[]) {
+    out[r.match_id] = {
+      matchId: r.match_id,
+      lineupConfirmed: r.lineup_confirmed,
+      ratings: r.ratings ?? undefined,
+      lineup: r.lineup ?? undefined,
+    };
+  }
+  return out;
+}
+
+/** Guarda/atualiza o patch manual de um jogo (admin). */
+export async function pushPatch(p: MatchPatch): Promise<void> {
+  const supa = getSupabase();
+  if (!supa) return;
+  await supa.from('rr_ratings').upsert(
+    {
+      league: LEAGUE, match_id: p.matchId,
+      lineup_confirmed: p.lineupConfirmed ?? false,
+      ratings: p.ratings ?? {}, lineup: p.lineup ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'league,match_id' },
+  );
+}
+
 export async function pushSpin(friendId: string, day: string, rec: SpinRec): Promise<void> {
   const supa = getSupabase();
   if (!supa) return;
@@ -75,6 +114,7 @@ export function subscribe(onChange: () => void): () => void {
     .channel('rr-sync')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'rr_picks', filter: `league=eq.${LEAGUE}` }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'rr_spins', filter: `league=eq.${LEAGUE}` }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'rr_ratings', filter: `league=eq.${LEAGUE}` }, onChange)
     .subscribe();
   return () => {
     void supa.removeChannel(ch);

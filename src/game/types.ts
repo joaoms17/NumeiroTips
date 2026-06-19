@@ -46,8 +46,14 @@ export interface Match {
   awayGoals?: number;
   /** Onze provável / candidatos a escolher, por equipa. */
   lineup: { home: Footballer[]; away: Footballer[] };
-  /** Rating final por jogador (só quando finished). */
+  /** Onze OFICIAL já anunciado (vs. plantel/provável). */
+  lineupConfirmed?: boolean;
+  /** Ids dos jogadores do ONZE oficial (marcados como titulares na escolha). */
+  starters?: string[];
+  /** Rating por jogador. Ao vivo se 'live'; final se 'finished'. */
   ratings?: Record<string, number>;
+  /** Origem dos dados deste jogo (para depurar / mostrar fonte). */
+  source?: 'sofascore' | 'apifootball' | 'fallback';
 }
 
 export interface Pick {
@@ -73,6 +79,20 @@ export interface SpinRec {
   matchId?: string; // jogo onde foi aplicada
   secondId?: string; // 2º jogador (ajuda 'dois')
   targetFootballerId?: string; // alvo ('tira' / 'rouba')
+}
+
+/**
+ * Patch manual de um jogo (admin) — onze oficial + notas. Importado de um print
+ * do FlashScore/SofaScore. Sobrepõe-se aos dados base e é partilhado (Supabase).
+ */
+export interface MatchPatch {
+  matchId: string;
+  lineupConfirmed?: boolean;
+  ratings?: Record<string, number>;
+  /** Onze oficial: jogadores garantidos na lista + marcados como titulares. */
+  lineup?: { home: Footballer[]; away: Footballer[] };
+  /** Em alternativa ao lineup: só os ids do onze (se já existem no plantel). */
+  starters?: string[];
 }
 
 /** Ajuda já aplicada num jogo (derivada dos spins) — entra no cálculo. */
