@@ -449,6 +449,7 @@ function AdminImport({ onClose }: { onClose: () => void }) {
   const savePatch = useGame((s) => s.savePatch);
   const setFlash = useGame((s) => s.setFlash);
   const matches = useGame((s) => s.matches);
+  const picks = useGame(allPicks);
   const [matchId, setMatchId] = useState(
     () => matches.find((m) => hasStarted(m))?.id ?? matches[0]?.id ?? '',
   );
@@ -513,7 +514,18 @@ function AdminImport({ onClose }: { onClose: () => void }) {
 
   const enterManual = () => {
     if (!match) return;
-    setReview([]);
+    const seen = new Set<string>();
+    const items: ReviewItem[] = [];
+    for (const p of picks.filter((p) => p.matchId === match.id)) {
+      if (seen.has(p.footballerId)) continue;
+      seen.add(p.footballerId);
+      const home = match.lineup.home.find((f) => f.id === p.footballerId);
+      const away = match.lineup.away.find((f) => f.id === p.footballerId);
+      const fb = home ?? away;
+      if (!fb) continue;
+      items.push({ raw: fb.name, side: home ? 'home' : 'away', rating: null, starter: true, id: fb.id, auto: true });
+    }
+    setReview(items);
     setManualMode(true);
     setErr(null);
     setPending({ side: 'home', id: '', rating: '' });
