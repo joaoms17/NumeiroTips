@@ -1,141 +1,70 @@
-import { useState, useMemo } from 'react';
-import { useOddsFeed } from './hooks/useOddsFeed';
-import { useStore, selectFilteredFeed } from './state/store';
-import { Feed } from './components/Feed';
-import { Filters } from './components/Filters';
-import { Settings } from './components/Settings';
-import { Arbitrage } from './components/Arbitrage';
-import { Analysis } from './components/Analysis';
-import { CLV } from './components/CLV';
-import { ago } from './lib/format';
-import { useNow } from './hooks/useNow';
-import { useHotkeys } from './hooks/useHotkeys';
-import { getDataMode } from './lib/env';
-import { BUILD_ID, hardRefresh } from './pwa';
+/** RATING ROYALE — shell mobile com nav inferior, login e toast. */
+import { useEffect, useState, type CSSProperties } from 'react';
+import { useGame } from './game/store';
+import { friendById, APP_NAME } from './game/config';
+import { Login } from './components/game/Login';
+import { Jogos } from './components/game/Jogos';
+import { Tabela } from './components/game/Tabela';
+import { Regras } from './components/game/Regras';
 
-type Tab = 'feed' | 'analise' | 'arbitragem' | 'clv' | 'definicoes';
-
-function DataModeBanner() {
-  const mode = getDataMode();
-  if (mode === 'mock') {
-    return (
-      <div className="banner demo">
-        ▲ <strong>MODO DEMO</strong> — odds <strong>simuladas</strong> para mostrar a app. Não são
-        apostas reais. Liga o The Odds API (grátis) para dados a sério.
-      </div>
-    );
-  }
-  if (mode === 'theoddsapi') {
-    return (
-      <div className="banner live">
-        ● Dados reais via <strong>The Odds API</strong> (tier grátis) — sê frugal com a quota.
-      </div>
-    );
-  }
-  return null;
-}
+type Tab = 'jogos' | 'tabela' | 'regras';
 
 export default function App() {
-  useOddsFeed();
-  const [tab, setTab] = useState<Tab>('feed');
-  const connected = useStore((s) => s.connected);
-  const sourceName = useStore((s) => s.sourceName);
-  const lastTickAt = useStore((s) => s.lastTickAt);
-  const feedCount = useStore((s) => selectFilteredFeed(s).length);
-  const arbCount = useStore((s) => s.arbs.length);
-  const now = useNow(1000);
+  const meId = useGame((s) => s.meId);
+  const me = friendById(meId);
+  const [tab, setTab] = useState<Tab>('jogos');
 
-  // Atalhos de teclado: 1–7 troca separador, "/" foca a pesquisa do feed.
-  const hotkeys = useMemo(() => {
-    const order: Tab[] = ['feed', 'analise', 'arbitragem', 'clv', 'definicoes'];
-    const map: Record<string, (e: KeyboardEvent) => void> = {
-      '/': (e) => {
-        setTab('feed');
-        // espera o feed montar e foca a pesquisa
-        setTimeout(() => document.getElementById('f-search')?.focus(), 0);
-        e.preventDefault();
-      },
-    };
-    order.forEach((t, i) => {
-      map[String(i + 1)] = () => setTab(t);
-    });
-    return map;
-  }, []);
-  useHotkeys(hotkeys);
+  if (!me) {
+    return (
+      <div className="rr-app">
+        <Login />
+      </div>
+    );
+  }
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div className="brand">
-          <span className="logo">▲ NumeiroTips</span>
-          <span className="tag hide-sm">+EV terminal</span>
-        </div>
-        <span className="status-pill source-pill" title={connected ? sourceName : 'desligado'}>
-          <span className={`dot ${connected ? 'live' : ''}`} />
-          <span className="source-name">{connected ? sourceName : 'desligado'}</span>
+    <div className="rr-app" style={{ '--me': me.color } as CSSProperties}>
+      <header className="rr-top">
+        <span className="rr-top-logo">👑 {APP_NAME}</span>
+        <span className="rr-top-me" style={{ '--c': me.color } as CSSProperties}>
+          {me.emoji} {me.name}
         </span>
-        {lastTickAt > 0 && (
-          <span className="status-pill mono hide-sm" title="Última atualização de odds">
-            tick {ago(new Date(lastTickAt).toISOString(), now)}
-          </span>
-        )}
-        <div className="spacer" />
-        <span className="status-pill mono hide-sm" title="Atalhos: 1–5 separadores · / pesquisa">
-          ⌨ 1–5 · /
-        </span>
-        <span className="status-pill mono hide-sm">{feedCount} +EV</span>
-        <span className="status-pill mono hide-sm" title={`Versão do build: ${BUILD_ID}`}>
-          v{BUILD_ID}
-        </span>
-        <button
-          className="btn ghost refresh-btn"
-          onClick={hardRefresh}
-          title="Hard refresh: limpa cache e service worker e recarrega a última versão"
-        >
-          ⟳
-        </button>
       </header>
 
-      <DataModeBanner />
+      <main className="rr-main" key={tab}>
+        {tab === 'jogos' && <Jogos />}
+        {tab === 'tabela' && <Tabela />}
+        {tab === 'regras' && <Regras />}
+      </main>
 
-      <nav className="tabs">
-        <button className={`tab ${tab === 'feed' ? 'active' : ''}`} onClick={() => setTab('feed')}>
-          Feed
-          {feedCount > 0 && <span className="badge">{feedCount}</span>}
-        </button>
-        <button className={`tab ${tab === 'analise' ? 'active' : ''}`} onClick={() => setTab('analise')}>
-          Análise
-        </button>
-        <button
-          className={`tab ${tab === 'arbitragem' ? 'active' : ''}`}
-          onClick={() => setTab('arbitragem')}
-        >
-          Buracos no mercado
-          {arbCount > 0 && <span className="badge">{arbCount}</span>}
-        </button>
-        <button className={`tab ${tab === 'clv' ? 'active' : ''}`} onClick={() => setTab('clv')}>
-          CLV
-        </button>
-        <button
-          className={`tab ${tab === 'definicoes' ? 'active' : ''}`}
-          onClick={() => setTab('definicoes')}
-        >
-          Definições
-        </button>
+      <nav className="rr-nav">
+        <NavBtn label="Jogos" icon="⚽" active={tab === 'jogos'} onClick={() => setTab('jogos')} />
+        <NavBtn label="Tabela" icon="🏆" active={tab === 'tabela'} onClick={() => setTab('tabela')} />
+        <NavBtn label="Regras" icon="📜" active={tab === 'regras'} onClick={() => setTab('regras')} />
       </nav>
 
-      <main className="content">
-        {tab === 'feed' && (
-          <>
-            <Filters />
-            <Feed />
-          </>
-        )}
-        {tab === 'analise' && <Analysis />}
-        {tab === 'arbitragem' && <Arbitrage />}
-        {tab === 'clv' && <CLV />}
-        {tab === 'definicoes' && <Settings />}
-      </main>
+      <Toast />
     </div>
   );
+}
+
+function NavBtn({ label, icon, active, onClick }: { label: string; icon: string; active: boolean; onClick: () => void }) {
+  return (
+    <button className={`rr-nav-btn ${active ? 'active' : ''}`} onClick={onClick}>
+      <span className="rr-nav-icon">{icon}</span>
+      <span className="rr-nav-lbl">{label}</span>
+    </button>
+  );
+}
+
+function Toast() {
+  const flash = useGame((s) => s.flash);
+  const setFlash = useGame((s) => s.setFlash);
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(null), 2200);
+    return () => clearTimeout(t);
+  }, [flash, setFlash]);
+  if (!flash) return null;
+  return <div className={`rr-toast ${flash.kind} pop-in`}>{flash.text}</div>;
 }
