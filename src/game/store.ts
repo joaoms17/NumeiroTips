@@ -105,6 +105,8 @@ function applyPatches(base: Match[], patches: Record<string, MatchPatch>): Match
       ratings: { ...(m.ratings ?? {}), ...(p.ratings ?? {}) },
       lineup,
       starters,
+      homeGoals: p.homeGoals ?? m.homeGoals,
+      awayGoals: p.awayGoals ?? m.awayGoals,
     };
   });
 }
@@ -117,6 +119,8 @@ function mergePatch(prev: MatchPatch | undefined, next: MatchPatch): MatchPatch 
     ratings: { ...(prev?.ratings ?? {}), ...(next.ratings ?? {}) },
     lineup: next.lineup ?? prev?.lineup,
     starters: next.starters ?? prev?.starters,
+    homeGoals: next.homeGoals ?? prev?.homeGoals,
+    awayGoals: next.awayGoals ?? prev?.awayGoals,
   };
 }
 

@@ -450,12 +450,14 @@ function AdminImport({ onClose }: { onClose: () => void }) {
   const setFlash = useGame((s) => s.setFlash);
   const matches = useGame((s) => s.matches);
   const [matchId, setMatchId] = useState(
-    () => matches.find((m) => !hasStarted(m))?.id ?? matches[0]?.id ?? '',
+    () => matches.find((m) => hasStarted(m))?.id ?? matches[0]?.id ?? '',
   );
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [review, setReview] = useState<ReviewItem[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [homeGoals, setHomeGoals] = useState<string>('');
+  const [awayGoals, setAwayGoals] = useState<string>('');
 
   const match = matches.find((m) => m.id === matchId);
 
@@ -504,6 +506,19 @@ function AdminImport({ onClose }: { onClose: () => void }) {
   const setItemId = (idx: number, id: string) =>
     setReview((r) => (r ? r.map((it, i) => (i === idx ? { ...it, id } : it)) : r));
 
+  const setItemRating = (idx: number, rating: number | null) =>
+    setReview((r) => (r ? r.map((it, i) => (i === idx ? { ...it, rating } : it)) : r));
+
+  const enterManual = () => {
+    if (!match) return;
+    const items: ReviewItem[] = [
+      ...match.lineup.home.map((p) => ({ raw: p.name, side: 'home' as const, rating: null, starter: true, id: p.id, auto: true })),
+      ...match.lineup.away.map((p) => ({ raw: p.name, side: 'away' as const, rating: null, starter: true, id: p.id, auto: true })),
+    ];
+    setReview(items);
+    setErr(null);
+  };
+
   const save = () => {
     if (!match || !review) return;
     const home: Footballer[] = [];
@@ -521,19 +536,21 @@ function AdminImport({ onClose }: { onClose: () => void }) {
       if (it.rating != null) ratings[it.id] = it.rating;
       if (it.starter) starters.push(it.id);
     }
-    if (home.length + away.length === 0) {
-      setErr('Nada para gravar — confirma pelo menos um jogador.');
+    if (home.length + away.length === 0 && Object.keys(ratings).length === 0 && homeGoals === '' && awayGoals === '') {
+      setErr('Nada para gravar — confirma pelo menos um jogador ou resultado.');
       return;
     }
     savePatch({
       matchId: match.id,
       lineupConfirmed: starters.length > 0,
       ratings: Object.keys(ratings).length ? ratings : undefined,
-      lineup: { home, away },
+      lineup: home.length + away.length > 0 ? { home, away } : undefined,
       starters: starters.length ? starters : undefined,
+      homeGoals: homeGoals !== '' ? Number(homeGoals) : undefined,
+      awayGoals: awayGoals !== '' ? Number(awayGoals) : undefined,
     });
     onClose();
-    setFlash({ kind: 'ok', text: `✅ ${home.length + away.length} jogadores atualizados!` });
+    setFlash({ kind: 'ok', text: `✅ Dados gravados!` });
   };
 
   return createPortal(
@@ -545,35 +562,56 @@ function AdminImport({ onClose }: { onClose: () => void }) {
         </div>
 
         <p className="rr-admin-help muted">
-          Escolhe o jogo, mete o(s) print(s) do FlashScore e <b>Extrair</b>. A IA lê os <b>nomes</b> e as
-          notas e eu caso-os com o plantel. Confirma os que ficarem em dúvida e grava.
+          Escolhe o jogo, mete o resultado e as notas. Usa <b>imagem</b> (IA extrai) ou <b>manual</b> (preenches tu).
         </p>
 
         <label className="rr-admin-lbl">Jogo</label>
-        <select className="rr-admin-select" value={matchId} onChange={(e) => { setMatchId(e.target.value); setReview(null); }}>
+        <select className="rr-admin-select" value={matchId} onChange={(e) => { setMatchId(e.target.value); setReview(null); setHomeGoals(''); setAwayGoals(''); }}>
           {matches.map((m) => (
             <option key={m.id} value={m.id}>{m.home.name} × {m.away.name} · {dayLabel(m.day)}</option>
           ))}
         </select>
 
-        <label className="rr-admin-lbl">Print(s) — onze e/ou notas (até 2-3)</label>
-        <input
-          className="rr-admin-file"
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={(e) => { setFiles(Array.from(e.target.files ?? [])); setErr(null); }}
-        />
-        <button className="rr-admin-extract" onClick={extract} disabled={!match || files.length === 0 || busy}>
-          {busy ? <span className="rr-spinner sm" /> : '📷'} Extrair da imagem
-        </button>
+        <label className="rr-admin-lbl">Resultado</label>
+        <div className="rr-admin-score">
+          <input
+            className="rr-admin-goals"
+            type="number" min="0" max="20" placeholder="0"
+            value={homeGoals}
+            onChange={(e) => setHomeGoals(e.target.value)}
+          />
+          <span className="rr-admin-dash">–</span>
+          <input
+            className="rr-admin-goals"
+            type="number" min="0" max="20" placeholder="0"
+            value={awayGoals}
+            onChange={(e) => setAwayGoals(e.target.value)}
+          />
+        </div>
+
+        <label className="rr-admin-lbl">Notas — por imagem ou manual</label>
+        <div className="rr-admin-extract-row">
+          <input
+            className="rr-admin-file"
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => { setFiles(Array.from(e.target.files ?? [])); setErr(null); }}
+          />
+          <button className="rr-admin-extract" onClick={extract} disabled={!match || files.length === 0 || busy}>
+            {busy ? <span className="rr-spinner sm" /> : '📷'} Extrair
+          </button>
+          <button className="rr-admin-manual" onClick={enterManual} disabled={!match}>
+            📋 Manual
+          </button>
+        </div>
 
         {err && <div className="rr-admin-err">{err}</div>}
 
         {review && match && (
           <>
             <label className="rr-admin-lbl">
-              Confere ({review.filter((i) => !i.id).length} por confirmar) — nome lido → jogador
+              Notas ({review.filter((i) => i.rating != null).length} preenchidas)
             </label>
             <div className="rr-review">
               {review.map((it, i) => {
@@ -581,9 +619,14 @@ function AdminImport({ onClose }: { onClose: () => void }) {
                 return (
                   <div key={i} className={`rr-review-row ${it.id ? '' : 'unresolved'}`}>
                     <span className="rr-review-side">{it.side === 'home' ? match.home.code : match.away.code}</span>
-                    <span className="rr-review-raw">
-                      {it.raw}{it.rating != null && <b className="rr-review-rt"> {it.rating.toFixed(1)}</b>}
-                    </span>
+                    <span className="rr-review-raw">{it.raw}</span>
+                    <input
+                      className="rr-review-rt-input"
+                      type="number" step="0.1" min="0" max="10"
+                      placeholder="—"
+                      value={it.rating ?? ''}
+                      onChange={(e) => setItemRating(i, e.target.value !== '' ? parseFloat(e.target.value) : null)}
+                    />
                     <select className="rr-review-select" value={it.id} onChange={(e) => setItemId(i, e.target.value)}>
                       <option value="">— ignorar —</option>
                       {pool.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -594,6 +637,10 @@ function AdminImport({ onClose }: { onClose: () => void }) {
             </div>
             <button className="rr-admin-save" onClick={save}>Gravar e partilhar</button>
           </>
+        )}
+
+        {!review && (homeGoals !== '' || awayGoals !== '') && (
+          <button className="rr-admin-save" onClick={save}>Gravar resultado</button>
         )}
       </div>
     </div>,

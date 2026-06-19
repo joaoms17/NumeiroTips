@@ -68,11 +68,18 @@ export async function fetchPatches(): Promise<Record<string, MatchPatch>> {
   const res = await supa.from('rr_ratings').select('*').eq('league', LEAGUE);
   const out: Record<string, MatchPatch> = {};
   for (const r of (res.data ?? []) as RatingRow[]) {
+    const raw = r.ratings ?? {};
+    const homeGoals = typeof raw.__hg === 'number' ? raw.__hg : undefined;
+    const awayGoals = typeof raw.__ag === 'number' ? raw.__ag : undefined;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { __hg, __ag, ...ratings } = raw;
     out[r.match_id] = {
       matchId: r.match_id,
       lineupConfirmed: r.lineup_confirmed,
-      ratings: r.ratings ?? undefined,
+      ratings: Object.keys(ratings).length ? ratings : undefined,
       lineup: r.lineup ?? undefined,
+      homeGoals,
+      awayGoals,
     };
   }
   return out;
@@ -82,11 +89,16 @@ export async function fetchPatches(): Promise<Record<string, MatchPatch>> {
 export async function pushPatch(p: MatchPatch): Promise<void> {
   const supa = getSupabase();
   if (!supa) return;
+  const ratingsToStore = {
+    ...(p.ratings ?? {}),
+    ...(p.homeGoals != null ? { __hg: p.homeGoals } : {}),
+    ...(p.awayGoals != null ? { __ag: p.awayGoals } : {}),
+  };
   await supa.from('rr_ratings').upsert(
     {
       league: LEAGUE, match_id: p.matchId,
       lineup_confirmed: p.lineupConfirmed ?? false,
-      ratings: p.ratings ?? {}, lineup: p.lineup ?? null,
+      ratings: ratingsToStore, lineup: p.lineup ?? null,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'league,match_id' },
