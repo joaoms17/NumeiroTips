@@ -446,6 +446,11 @@ export function claimedInMatch(s: GameState, matchId: string, exceptFriendId: st
   }
   return set;
 }
+/** Todos os spins (online ou local) — para mostrar ajudas de todos. */
+export function allSpins(s: GameState): Record<string, SpinRec> {
+  return spinsOf(s);
+}
+
 /** O meu jogador deste jogo foi roubado por outro? */
 export function iWasRobbed(s: GameState, matchId: string): boolean {
   if (!s.meId) return false;
