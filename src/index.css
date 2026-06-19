@@ -1043,6 +1043,20 @@ tr.detail-row > td {
 }
 .rr-refresh:disabled { opacity: 0.6; cursor: default; }
 .rr-spinner.sm { width: 12px; height: 12px; border-width: 2px; }
+.rr-admin-actions { display: inline-flex; gap: 6px; }
+.rr-admin-help { font-size: 12px; line-height: 1.5; margin: 0 0 10px; }
+.rr-admin-text {
+  width: 100%; box-sizing: border-box; resize: vertical; min-height: 160px;
+  background: var(--bg-1); border: 1px solid var(--border); border-radius: 12px;
+  color: var(--fg-1); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; padding: 10px; line-height: 1.5;
+}
+.rr-admin-err { color: var(--red); font-size: 12px; margin-top: 8px; }
+.rr-admin-save {
+  margin-top: 12px; width: 100%; padding: 12px; border-radius: 14px; border: none;
+  background: var(--green); color: #04110b; font-weight: 800; cursor: pointer;
+}
+.rr-admin-save:disabled { opacity: 0.5; cursor: default; }
 
 .rr-cards { display: flex; flex-direction: column; gap: 12px; }
 .rr-empty, .rr-nopick { color: var(--fg-2); text-align: center; padding: 8px; }

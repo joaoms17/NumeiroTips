@@ -5,7 +5,7 @@ import { isOpen, ratingOf, takenInMatch, usedByFriendOnDay, pickOrder } from '..
 import { FRIENDS } from '../../game/config';
 import { ajudaMeta } from '../../game/wheel';
 import { dayLabel, dayNum, kickLabel, relToday } from '../../game/format';
-import type { Footballer, Match } from '../../game/types';
+import type { Footballer, Match, MatchPatch } from '../../game/types';
 import { RodaBanner } from './Roda';
 
 type HelpMode = 'second' | 'target' | 'steal';
@@ -20,6 +20,7 @@ export function Jogos() {
   const refreshFixtures = useGame((s) => s.refreshFixtures);
   const isAdmin = meId === 'joao';
   const refreshing = fixturesStatus === 'loading';
+  const [importing, setImporting] = useState(false);
 
   if (days.length === 0) {
     return (
@@ -61,11 +62,18 @@ export function Jogos() {
       <div className="rr-day-head">
         <span className="rr-day-title">{dayLabel(selectedDay)}</span>
         {isAdmin && (
-          <button className="rr-refresh" onClick={refreshFixtures} disabled={refreshing} title="Forçar atualização (admin)">
-            {refreshing ? <span className="rr-spinner sm" /> : '🔄'} atualizar
-          </button>
+          <div className="rr-admin-actions">
+            <button className="rr-refresh" onClick={() => setImporting(true)} title="Importar onze/notas (admin)">
+              ✏️ dados
+            </button>
+            <button className="rr-refresh" onClick={refreshFixtures} disabled={refreshing} title="Forçar atualização (admin)">
+              {refreshing ? <span className="rr-spinner sm" /> : '🔄'} atualizar
+            </button>
+          </div>
         )}
       </div>
+
+      {importing && <AdminImport onClose={() => setImporting(false)} />}
 
       <div className="rr-cards">
         {matches.map((m, i) => (
@@ -314,4 +322,65 @@ function findFootballer(match: Match, id: string): Footballer | null {
 }
 function teamFlag(match: Match, code: string): string {
   return match.home.code === code ? match.home.flag : match.away.flag;
+}
+
+/** Painel admin: cola um (ou vários) patch(es) JSON com onze + notas. */
+function AdminImport({ onClose }: { onClose: () => void }) {
+  const savePatch = useGame((s) => s.savePatch);
+  const setFlash = useGame((s) => s.setFlash);
+  const matchIds = useGame((s) => new Set(s.matches.map((m) => m.id)));
+  const [text, setText] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+
+  const apply = () => {
+    let data: unknown;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      setErr('JSON inválido — confirma que colaste o bloco todo.');
+      return;
+    }
+    const list = (Array.isArray(data) ? data : [data]) as MatchPatch[];
+    const valid = list.filter((p) => p && typeof p.matchId === 'string');
+    if (valid.length === 0) {
+      setErr('Sem "matchId" — o bloco não parece um patch de jogo.');
+      return;
+    }
+    const unknown = valid.filter((p) => !matchIds.has(p.matchId)).map((p) => p.matchId);
+    valid.forEach((p) => savePatch(p));
+    onClose();
+    setFlash({
+      kind: unknown.length ? 'err' : 'ok',
+      text: unknown.length
+        ? `Guardei ${valid.length}, mas estes IDs não existem: ${unknown.join(', ')}`
+        : `✅ ${valid.length} jogo(s) atualizado(s)!`,
+    });
+  };
+
+  return (
+    <div className="rr-modal" onClick={onClose}>
+      <div className="rr-sheet slide-in" onClick={(e) => e.stopPropagation()}>
+        <div className="rr-sheet-h">
+          <span>✏️ Importar onze + notas (admin)</span>
+          <button className="rr-x" onClick={onClose}>✕</button>
+        </div>
+        <p className="rr-admin-help muted">
+          Manda-me um print do FlashScore e eu dou-te o bloco. Cola-o aqui e grava —
+          fica visível para os 4 em tempo real.
+        </p>
+        <textarea
+          className="rr-admin-text"
+          placeholder={'{\n  "matchId": "fb-esp-mex",\n  "lineupConfirmed": true,\n  "ratings": { "ESP-19": 8.3, "MEX-9": 7.1 }\n}'}
+          value={text}
+          onChange={(e) => { setText(e.target.value); setErr(null); }}
+          rows={10}
+          autoFocus
+        />
+        {err && <div className="rr-admin-err">{err}</div>}
+        <button className="rr-admin-save" onClick={apply} disabled={!text.trim()}>
+          Gravar e partilhar
+        </button>
+      </div>
+    </div>
+  );
 }

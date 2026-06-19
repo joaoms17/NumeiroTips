@@ -7,13 +7,12 @@
  * no Supabase (modo online).
  */
 import { create } from 'zustand';
-import type { AjudaId, Match, Pick, SpinRec } from './types';
+import type { AjudaId, Match, MatchPatch, Pick, SpinRec } from './types';
 import { FRIENDS } from './config';
 import { canPick, byKickoff, standingsWithHelps, helpsFromSpins, takenInMatch } from './scoring';
 import { spinAjuda, ajudaMeta } from './wheel';
-import { isOnline, pushPick, pushSpin } from './online';
+import { isOnline, pushPick, pushSpin, pushPatch } from './online';
 import { clearFixturesCache } from './liveFixtures';
-import { clearSofascoreCache } from './sofascore';
 
 const ONLINE = isOnline();
 
@@ -62,6 +61,20 @@ function mergePicks(user: Pick[]): Pick[] {
   return [...map.values()];
 }
 
+/** Sobrepõe os patches manuais (onze oficial + notas) aos jogos base. */
+function applyPatches(base: Match[], patches: Record<string, MatchPatch>): Match[] {
+  return base.map((m) => {
+    const p = patches[m.id];
+    if (!p) return m;
+    return {
+      ...m,
+      lineupConfirmed: p.lineupConfirmed ?? m.lineupConfirmed,
+      ratings: { ...(m.ratings ?? {}), ...(p.ratings ?? {}) },
+      lineup: p.lineup ?? m.lineup,
+    };
+  });
+}
+
 const sortedDays = (matches: Match[]) =>
   [...new Set(matches.map((m) => m.day))].sort();
 
@@ -74,7 +87,12 @@ export type FixturesStatus = 'loading' | 'ready' | 'empty';
 
 export interface GameState {
   meId: string | null;
+  /** Jogos visíveis = base (fixtures) + patches manuais sobrepostos. */
   matches: Match[];
+  /** Jogos base, antes dos patches. */
+  baseMatches: Match[];
+  /** Patches manuais do admin (onze + notas), por matchId. */
+  patches: Record<string, MatchPatch>;
   /** Estado do carregamento dos jogos reais (API-Football). */
   fixturesStatus: FixturesStatus;
   /** Bump para forçar novo fetch dos jogos (botão admin "atualizar"). */
@@ -106,6 +124,10 @@ export interface GameState {
   setFixturesStatus: (status: FixturesStatus) => void;
   /** Força ir buscar de novo os jogos (limpa cache e re-fetch). */
   refreshFixtures: () => void;
+  /** Online: substitui os patches manuais (após fetch/realtime). */
+  setPatches: (patches: Record<string, MatchPatch>) => void;
+  /** Admin: guarda um patch manual (onze + notas) e partilha (Supabase). */
+  savePatch: (patch: MatchPatch) => void;
 }
 
 /** Fonte efetiva de palpites/spins: remota (online) ou local. */
@@ -128,6 +150,8 @@ const savedMe = (() => {
 export const useGame = create<GameState>((set, get) => ({
   meId: savedMe,
   matches: [],
+  baseMatches: [],
+  patches: {},
   fixturesStatus: 'loading',
   fixturesRefreshKey: 0,
   userPicks: initialUser,
@@ -251,19 +275,30 @@ export const useGame = create<GameState>((set, get) => ({
 
   setFlash: (f) => set({ flash: f }),
 
-  setMatches: (matches) => set((s) => ({
-    matches,
-    // mantém o dia escolhido se ainda existir; senão vai para o default
-    selectedDay: matches.some((m) => m.day === s.selectedDay) ? s.selectedDay : defaultDay(matches),
-  })),
+  setMatches: (base) => set((s) => {
+    const matches = applyPatches(base, s.patches);
+    return {
+      baseMatches: base,
+      matches,
+      // mantém o dia escolhido se ainda existir; senão vai para o default
+      selectedDay: matches.some((m) => m.day === s.selectedDay) ? s.selectedDay : defaultDay(matches),
+    };
+  }),
 
   setFixturesStatus: (fixturesStatus) => set({ fixturesStatus }),
 
   refreshFixtures: () => {
-    clearSofascoreCache();
     clearFixturesCache();
     set((s) => ({ fixturesRefreshKey: s.fixturesRefreshKey + 1 }));
   },
+
+  setPatches: (patches) => set((s) => ({ patches, matches: applyPatches(s.baseMatches, patches) })),
+
+  savePatch: (patch) => set((s) => {
+    const patches = { ...s.patches, [patch.matchId]: patch };
+    void pushPatch(patch);
+    return { patches, matches: applyPatches(s.baseMatches, patches) };
+  }),
 }));
 
 /** Upsert de um pick (substitui o do mesmo amigo+jogo). */

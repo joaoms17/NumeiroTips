@@ -1,28 +1,24 @@
 /**
  * Carrega os jogos do Mundial 2026 com cadeia de fontes (degradação graciosa):
- *   1) SofaScore  — jogos + ONZES + RATINGS ao vivo (grátis, cobre 2026)
- *   2) API-Football — se houver chave/plano com a época
- *   3) Fallback curado — jogos de exemplo com plantéis completos (sempre jogável)
+ *   1) API-Football — se houver chave/plano com a época 2026
+ *   2) Fallback curado — jogos de exemplo com plantéis completos (sempre jogável)
+ *
+ * As NOTAS/ONZES ao vivo entram por importação manual do admin (ver online.ts /
+ * painel de admin), porque as fontes automáticas grátis (SofaScore) estão
+ * bloqueadas por Cloudflare em servidores de datacenter (Vercel).
  */
 import { useEffect } from 'react';
 import { useGame } from '../game/store';
-import { fetchWorldCupMatches } from '../game/sofascore';
 import { loadLiveFixtures } from '../game/liveFixtures';
 import { FALLBACK_MATCHES } from '../game/mockData';
 import type { Match } from '../game/types';
 
 async function loadChain(): Promise<Match[]> {
   try {
-    const ss = await fetchWorldCupMatches();
-    if (ss.length > 0) return ss;
-  } catch (e) {
-    console.warn('[fixtures] SofaScore falhou:', e);
-  }
-  try {
     const af = await loadLiveFixtures();
     if (af.length > 0) return af;
   } catch (e) {
-    console.warn('[fixtures] API-Football falhou:', e);
+    console.warn('[fixtures] API-Football falhou, a usar fallback:', e);
   }
   return FALLBACK_MATCHES;
 }

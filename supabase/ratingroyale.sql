@@ -34,9 +34,21 @@ create table if not exists public.rr_spins (
   primary key (league, friend_id, day)
 );
 
+-- Patches manuais do admin: onze oficial + notas por jogo (de prints FlashScore)
+create table if not exists public.rr_ratings (
+  league           text not null default 'mundial2026',
+  match_id         text not null,
+  lineup_confirmed boolean not null default false,
+  ratings          jsonb not null default '{}'::jsonb,
+  lineup           jsonb,
+  updated_at       timestamptz not null default now(),
+  primary key (league, match_id)
+);
+
 -- RLS + políticas permissivas (jogo privado entre amigos)
 alter table public.rr_picks enable row level security;
 alter table public.rr_spins enable row level security;
+alter table public.rr_ratings enable row level security;
 
 drop policy if exists rr_picks_all on public.rr_picks;
 create policy rr_picks_all on public.rr_picks
@@ -46,6 +58,11 @@ drop policy if exists rr_spins_all on public.rr_spins;
 create policy rr_spins_all on public.rr_spins
   for all to anon using (true) with check (true);
 
+drop policy if exists rr_ratings_all on public.rr_ratings;
+create policy rr_ratings_all on public.rr_ratings
+  for all to anon using (true) with check (true);
+
 -- Realtime (atualização ao vivo)
 alter publication supabase_realtime add table public.rr_picks;
 alter publication supabase_realtime add table public.rr_spins;
+alter publication supabase_realtime add table public.rr_ratings;

@@ -79,6 +79,18 @@ export interface SpinRec {
   targetFootballerId?: string; // alvo ('tira' / 'rouba')
 }
 
+/**
+ * Patch manual de um jogo (admin) — onze oficial + notas. Importado de um print
+ * do FlashScore/SofaScore. Sobrepõe-se aos dados base e é partilhado (Supabase).
+ */
+export interface MatchPatch {
+  matchId: string;
+  lineupConfirmed?: boolean;
+  ratings?: Record<string, number>;
+  /** Onze oficial (substitui os candidatos a escolher), se fornecido. */
+  lineup?: { home: Footballer[]; away: Footballer[] };
+}
+
 /** Ajuda já aplicada num jogo (derivada dos spins) — entra no cálculo. */
 export interface Help {
   friendId: string;

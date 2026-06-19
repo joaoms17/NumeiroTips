@@ -1,10 +1,11 @@
 /** Sincroniza o estado partilhado (Supabase) com o store, em tempo real. */
 import { useEffect } from 'react';
 import { useGame } from '../game/store';
-import { isOnline, fetchState, subscribe } from '../game/online';
+import { isOnline, fetchState, fetchPatches, subscribe } from '../game/online';
 
 export function useOnlineSync() {
   const setRemote = useGame((s) => s.setRemote);
+  const setPatches = useGame((s) => s.setPatches);
   useEffect(() => {
     if (!isOnline()) return;
     let alive = true;
@@ -12,9 +13,12 @@ export function useOnlineSync() {
       fetchState()
         .then((st) => { if (alive) setRemote(st); })
         .catch((e) => console.warn('[online] fetch falhou', e));
+      fetchPatches()
+        .then((p) => { if (alive) setPatches(p); })
+        .catch((e) => console.warn('[online] fetch patches falhou', e));
     };
     refresh();
     const unsub = subscribe(refresh);
     return () => { alive = false; unsub(); };
-  }, [setRemote]);
+  }, [setRemote, setPatches]);
 }
