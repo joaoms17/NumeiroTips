@@ -454,7 +454,9 @@ function matchByName(name: string, pool: Footballer[]): Footballer | null {
 function AdminImport({ onClose }: { onClose: () => void }) {
   const savePatch = useGame((s) => s.savePatch);
   const setFlash = useGame((s) => s.setFlash);
-  const matches = useGame((s) => s.matches);
+  const selectedDay = useGame((s) => s.selectedDay);
+  const allMatches = useGame((s) => s.matches);
+  const matches = allMatches.filter((m) => m.day === selectedDay);
   const picks = useGame(allPicks);
   const [matchId, setMatchId] = useState(
     () => matches.find((m) => hasStarted(m))?.id ?? matches[0]?.id ?? '',
