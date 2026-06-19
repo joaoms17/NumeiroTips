@@ -1,5 +1,6 @@
 /** Roda diária de ajudas — cartão + roleta animada. */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useGame, mySpin } from '../../game/store';
 import { AJUDAS, ajudaMeta } from '../../game/wheel';
 import type { AjudaId } from '../../game/types';
@@ -67,7 +68,7 @@ function Wheel({ day, onClose }: { day: string; onClose: () => void }) {
   const meta = AJUDAS[idx];
   const done = phase === 'done' && result;
 
-  return (
+  return createPortal(
     <div className="rr-modal" onClick={phase === 'spinning' ? undefined : onClose}>
       <div className="rr-wheel-box" onClick={(e) => e.stopPropagation()}>
         <div className="rr-wheel-title">🎡 Roda do dia</div>
@@ -95,6 +96,7 @@ function Wheel({ day, onClose }: { day: string; onClose: () => void }) {
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
