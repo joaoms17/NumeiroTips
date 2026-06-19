@@ -1154,6 +1154,13 @@ tr.detail-row > td {
 .rr-regras-card { background: var(--bg-2); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; }
 .rr-regras-card h3 { margin: 0 0 8px; font-size: 15px; }
 .rr-regras-card ul { margin: 0; padding-left: 18px; color: var(--fg-1); line-height: 1.7; font-size: 14px; }
+.rr-regras-intro { margin: 0 0 10px; font-size: 13px; line-height: 1.5; }
+.rr-ajudas-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.rr-ajuda-item { display: flex; align-items: flex-start; gap: 10px; }
+.rr-ajuda-emoji { font-size: 22px; line-height: 1.2; flex-shrink: 0; width: 26px; text-align: center; }
+.rr-ajuda-text { display: flex; flex-direction: column; gap: 2px; }
+.rr-ajuda-text strong { font-size: 14px; }
+.rr-ajuda-text small { font-size: 13px; color: var(--fg-2); line-height: 1.45; }
 .rr-logout { margin-top: 8px; padding: 12px; border-radius: 14px; border: 1px solid var(--red-dim); background: rgba(255, 84, 112, 0.08); color: var(--red); font-weight: 800; cursor: pointer; }
 
 /* ---- animações ---- */

@@ -136,6 +136,8 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
         </div>
       ) : isOpen(match) ? (
         <button className="rr-choose" onClick={() => setPicker('pick')}>＋ Escolher jogador</button>
+      ) : match.status === 'finished' ? (
+        <div className="rr-nopick muted">não escolheste 😬 levaste o pior rating do jogo</div>
       ) : (
         <div className="rr-nopick muted">não escolheste 😬</div>
       )}
