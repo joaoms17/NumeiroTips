@@ -455,6 +455,8 @@ function AdminImport({ onClose }: { onClose: () => void }) {
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [review, setReview] = useState<ReviewItem[] | null>(null);
+  const [manualMode, setManualMode] = useState(false);
+  const [pending, setPending] = useState<{ side: 'home' | 'away'; id: string; rating: string }>({ side: 'home', id: '', rating: '' });
   const [err, setErr] = useState<string | null>(null);
   const [homeGoals, setHomeGoals] = useState<string>('');
   const [awayGoals, setAwayGoals] = useState<string>('');
@@ -511,13 +513,23 @@ function AdminImport({ onClose }: { onClose: () => void }) {
 
   const enterManual = () => {
     if (!match) return;
-    const items: ReviewItem[] = [
-      ...match.lineup.home.map((p) => ({ raw: p.name, side: 'home' as const, rating: null, starter: true, id: p.id, auto: true })),
-      ...match.lineup.away.map((p) => ({ raw: p.name, side: 'away' as const, rating: null, starter: true, id: p.id, auto: true })),
-    ];
-    setReview(items);
+    setReview([]);
+    setManualMode(true);
     setErr(null);
+    setPending({ side: 'home', id: '', rating: '' });
   };
+
+  const addPending = () => {
+    if (!pending.id || !match) return;
+    const pool = pending.side === 'away' ? match.lineup.away : match.lineup.home;
+    const fb = pool.find((p) => p.id === pending.id);
+    if (!fb) return;
+    const rating = pending.rating !== '' ? parseFloat(pending.rating) : null;
+    setReview((r) => [...(r ?? []), { raw: fb.name, side: pending.side, rating, starter: true, id: pending.id, auto: true }]);
+    setPending((p) => ({ ...p, id: '', rating: '' }));
+  };
+
+  const removeItem = (idx: number) => setReview((r) => r ? r.filter((_, i) => i !== idx) : r);
 
   const save = () => {
     if (!match || !review) return;
@@ -611,7 +623,7 @@ function AdminImport({ onClose }: { onClose: () => void }) {
         {review && match && (
           <>
             <label className="rr-admin-lbl">
-              Notas ({review.filter((i) => i.rating != null).length} preenchidas)
+              {manualMode ? `Jogadores adicionados (${review.length})` : `Notas (${review.filter((i) => i.rating != null).length} preenchidas)`}
             </label>
             <div className="rr-review">
               {review.map((it, i) => {
@@ -627,13 +639,48 @@ function AdminImport({ onClose }: { onClose: () => void }) {
                       value={it.rating ?? ''}
                       onChange={(e) => setItemRating(i, e.target.value !== '' ? parseFloat(e.target.value) : null)}
                     />
-                    <select className="rr-review-select" value={it.id} onChange={(e) => setItemId(i, e.target.value)}>
-                      <option value="">— ignorar —</option>
-                      {pool.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
+                    {manualMode ? (
+                      <button className="rr-review-rm" onClick={() => removeItem(i)}>×</button>
+                    ) : (
+                      <select className="rr-review-select" value={it.id} onChange={(e) => setItemId(i, e.target.value)}>
+                        <option value="">— ignorar —</option>
+                        {pool.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    )}
                   </div>
                 );
               })}
+              {manualMode && (
+                <div className="rr-add-row">
+                  <select
+                    className="rr-add-side"
+                    value={pending.side}
+                    onChange={(e) => setPending((p) => ({ ...p, side: e.target.value as 'home' | 'away', id: '' }))}
+                  >
+                    <option value="home">{match.home.code}</option>
+                    <option value="away">{match.away.code}</option>
+                  </select>
+                  <select
+                    className="rr-add-player"
+                    value={pending.id}
+                    onChange={(e) => setPending((p) => ({ ...p, id: e.target.value }))}
+                  >
+                    <option value="">— jogador —</option>
+                    {(pending.side === 'home' ? match.lineup.home : match.lineup.away)
+                      .filter((p) => !review.some((r) => r.id === p.id))
+                      .map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                  <input
+                    className="rr-review-rt-input"
+                    type="number" step="0.1" min="0" max="10"
+                    placeholder="nota"
+                    value={pending.rating}
+                    onChange={(e) => setPending((p) => ({ ...p, rating: e.target.value }))}
+                    onKeyDown={(e) => e.key === 'Enter' && addPending()}
+                  />
+                  <button className="rr-add-btn" onClick={addPending} disabled={!pending.id}>+</button>
+                </div>
+              )}
             </div>
             <button className="rr-admin-save" onClick={save}>Gravar e partilhar</button>
           </>
