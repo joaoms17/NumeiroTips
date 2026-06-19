@@ -1090,6 +1090,13 @@ tr.detail-row > td {
 }
 .rr-review-select { flex: 1.2; min-width: 0; padding: 6px 8px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg-1); color: var(--fg-0); font-size: 13px; }
 .rr-review-row.unresolved .rr-review-select { border-color: var(--amber-dim); }
+.rr-review-rm { flex-shrink: 0; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--fg-2); cursor: pointer; font-size: 14px; }
+.rr-review-rm:hover { color: var(--red); border-color: var(--red); }
+.rr-add-row { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--border); background: rgba(255,255,255,0.03); }
+.rr-add-side { width: 52px; flex-shrink: 0; padding: 6px 4px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg-1); color: var(--fg-0); font-size: 12px; font-weight: 800; }
+.rr-add-player { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg-1); color: var(--fg-0); font-size: 13px; }
+.rr-add-btn { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; border: none; background: var(--cyan); color: #000; font-size: 18px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.rr-add-btn:disabled { opacity: 0.4; cursor: default; }
 .rr-admin-save {
   margin-top: 12px; width: 100%; padding: 12px; border-radius: 14px; border: none;
   background: var(--green); color: #04110b; font-weight: 800; cursor: pointer;
