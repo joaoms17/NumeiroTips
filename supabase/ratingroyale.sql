@@ -62,7 +62,16 @@ drop policy if exists rr_ratings_all on public.rr_ratings;
 create policy rr_ratings_all on public.rr_ratings
   for all to anon using (true) with check (true);
 
--- Realtime (atualização ao vivo)
-alter publication supabase_realtime add table public.rr_picks;
-alter publication supabase_realtime add table public.rr_spins;
-alter publication supabase_realtime add table public.rr_ratings;
+-- Realtime (atualização ao vivo) — idempotente: só adiciona se ainda não estiver
+do $$
+declare t text;
+begin
+  foreach t in array array['rr_picks', 'rr_spins', 'rr_ratings'] loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
