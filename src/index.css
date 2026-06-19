@@ -1064,6 +1064,15 @@ tr.detail-row > td {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
 }
 .rr-admin-extract:disabled { opacity: 0.5; cursor: default; }
+.rr-review { max-height: 46vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; }
+.rr-review-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-top: 1px solid var(--border); }
+.rr-review-row:first-child { border-top: none; }
+.rr-review-row.unresolved { background: rgba(255, 180, 84, 0.08); }
+.rr-review-side { font-size: 9px; font-weight: 800; color: var(--fg-2); width: 30px; flex-shrink: 0; }
+.rr-review-raw { flex: 1; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rr-review-rt { color: var(--amber); }
+.rr-review-select { flex: 1.2; min-width: 0; padding: 6px 8px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg-1); color: var(--fg-0); font-size: 13px; }
+.rr-review-row.unresolved .rr-review-select { border-color: var(--amber-dim); }
 .rr-admin-save {
   margin-top: 12px; width: 100%; padding: 12px; border-radius: 14px; border: none;
   background: var(--green); color: #04110b; font-weight: 800; cursor: pointer;
