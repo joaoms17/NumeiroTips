@@ -2,6 +2,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useGame } from './game/store';
 import { friendById, APP_NAME } from './game/config';
+import { useOnlineSync } from './hooks/useOnlineSync';
 import { Login } from './components/game/Login';
 import { Jogos } from './components/game/Jogos';
 import { Tabela } from './components/game/Tabela';
@@ -10,7 +11,9 @@ import { Regras } from './components/game/Regras';
 type Tab = 'jogos' | 'tabela' | 'regras';
 
 export default function App() {
+  useOnlineSync();
   const meId = useGame((s) => s.meId);
+  const online = useGame((s) => s.online);
   const me = friendById(meId);
   const [tab, setTab] = useState<Tab>('jogos');
 
@@ -25,7 +28,12 @@ export default function App() {
   return (
     <div className="rr-app" style={{ '--me': me.color } as CSSProperties}>
       <header className="rr-top">
-        <span className="rr-top-logo">👑 {APP_NAME}</span>
+        <span className="rr-top-logo">
+          👑 {APP_NAME}
+          <span className={`rr-net ${online ? 'on' : ''}`} title={online ? 'Online (partilhado)' : 'Local'}>
+            {online ? '● online' : '○ local'}
+          </span>
+        </span>
         <span className="rr-top-me" style={{ '--c': me.color } as CSSProperties}>
           {me.emoji} {me.name}
         </span>

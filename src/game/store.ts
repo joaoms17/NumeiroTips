@@ -12,6 +12,9 @@ import { FRIENDS } from './config';
 import { MOCK_MATCHES, MOCK_PICKS } from './mockData';
 import { canPick, byKickoff, standingsWithHelps, helpsFromSpins, takenInMatch } from './scoring';
 import { spinAjuda, ajudaMeta } from './wheel';
+import { isOnline, pushPick, pushSpin } from './online';
+
+const ONLINE = isOnline();
 
 const LS_ME = 'ratingroyale:me';
 const LS_PICKS = 'ratingroyale:picks';
@@ -72,6 +75,10 @@ export interface GameState {
   matches: Match[];
   userPicks: Pick[];
   spins: Record<string, SpinRec>;
+  /** Online: estado partilhado vindo do Supabase (todos os amigos). */
+  online: boolean;
+  remotePicks: Pick[];
+  remoteSpins: Record<string, SpinRec>;
   selectedDay: string;
   /** mensagem efémera (erro/sucesso ao escolher). */
   flash: { kind: 'ok' | 'err'; text: string } | null;
@@ -84,7 +91,17 @@ export interface GameState {
   spin: (day: string) => AjudaId;
   /** Aplica a ajuda do dia a um jogo (com 2º jogador / alvo conforme o tipo). */
   applyHelp: (day: string, matchId: string, opts?: { secondId?: string; targetFootballerId?: string }) => void;
+  /** Online: substitui o estado partilhado (após fetch/realtime). */
+  setRemote: (data: { picks: Pick[]; spins: Record<string, SpinRec> }) => void;
   setFlash: (f: GameState['flash']) => void;
+}
+
+/** Fonte efetiva de palpites/spins: remota (online) ou local+semente. */
+function picksOf(s: GameState): Pick[] {
+  return s.online ? s.remotePicks : mergePicks(s.userPicks);
+}
+function spinsOf(s: GameState): Record<string, SpinRec> {
+  return s.online ? s.remoteSpins : s.spins;
 }
 
 const initialUser = loadUserPicks();
@@ -101,6 +118,9 @@ export const useGame = create<GameState>((set, get) => ({
   matches: MOCK_MATCHES,
   userPicks: initialUser,
   spins: loadSpins(),
+  online: ONLINE,
+  remotePicks: [],
+  remoteSpins: {},
   selectedDay: defaultDay(MOCK_MATCHES),
   flash: null,
 
@@ -130,49 +150,64 @@ export const useGame = create<GameState>((set, get) => ({
   selectDay: (day) => set({ selectedDay: day }),
 
   choose: (matchId, footballerId) => {
-    const { meId, matches } = get();
+    const s = get();
+    const { meId, matches } = s;
     if (!meId) return;
     const match = matches.find((m) => m.id === matchId);
     if (!match) return;
-    const merged = mergePicks(get().userPicks);
-    const check = canPick(merged, matches, meId, match, footballerId);
+    const check = canPick(picksOf(s), matches, meId, match, footballerId);
     if (!check.ok) {
       set({ flash: { kind: 'err', text: check.reason ?? 'Não dá.' } });
       return;
     }
     // jogador roubado por outro neste jogo não pode ser reescolhido
-    const robbed = helpsFromSpins(get().spins).some(
+    const robbed = helpsFromSpins(spinsOf(s)).some(
       (h) => h.ajuda === 'rouba' && h.matchId === matchId && h.friendId !== meId && h.targetFootballerId === footballerId,
     );
     if (robbed) {
       set({ flash: { kind: 'err', text: 'Esse jogador foi roubado — escolhe outro.' } });
       return;
     }
-    const key = `${meId}:${matchId}`;
-    const next = get().userPicks.filter((p) => `${p.friendId}:${p.matchId}` !== key);
-    next.push({ friendId: meId, matchId, footballerId, at: new Date().toISOString() });
-    saveUserPicks(next);
-    set({ userPicks: next, flash: { kind: 'ok', text: 'Escolha registada! 🔒' } });
+    const pick: Pick = { friendId: meId, matchId, footballerId, at: new Date().toISOString() };
+    if (s.online) {
+      const remotePicks = upsertPick(s.remotePicks, pick);
+      set({ remotePicks, flash: { kind: 'ok', text: 'Escolha registada! 🔒' } });
+      void pushPick(pick);
+    } else {
+      const key = `${meId}:${matchId}`;
+      const next = s.userPicks.filter((p) => `${p.friendId}:${p.matchId}` !== key);
+      next.push(pick);
+      saveUserPicks(next);
+      set({ userPicks: next, flash: { kind: 'ok', text: 'Escolha registada! 🔒' } });
+    }
   },
 
   spin: (day) => {
-    const { meId } = get();
+    const s = get();
+    const { meId } = s;
     if (!meId) return 'nenhuma';
     const key = spinKey(meId, day);
-    const existing = get().spins[key];
+    const existing = spinsOf(s)[key];
     if (existing) return existing.ajuda; // já rodou hoje
     const ajuda = spinAjuda();
-    const spins = { ...get().spins, [key]: { ajuda } as SpinRec };
-    saveSpins(spins);
-    set({ spins });
+    const rec: SpinRec = { ajuda };
+    if (s.online) {
+      set({ remoteSpins: { ...s.remoteSpins, [key]: rec } });
+      void pushSpin(meId, day, rec);
+    } else {
+      const spins = { ...s.spins, [key]: rec };
+      saveSpins(spins);
+      set({ spins });
+    }
     return ajuda;
   },
 
   applyHelp: (day, matchId, opts) => {
-    const { meId, matches } = get();
+    const s = get();
+    const { meId, matches } = s;
     if (!meId) return;
     const key = spinKey(meId, day);
-    const rec = get().spins[key];
+    const rec = spinsOf(s)[key];
     if (!rec) {
       set({ flash: { kind: 'err', text: 'Roda a roda primeiro.' } });
       return;
@@ -187,20 +222,31 @@ export const useGame = create<GameState>((set, get) => ({
       set({ flash: { kind: 'err', text: 'Esse jogo já fechou.' } });
       return;
     }
-    const spins = {
-      ...get().spins,
-      [key]: { ...rec, matchId, secondId: opts?.secondId, targetFootballerId: opts?.targetFootballerId },
-    };
-    saveSpins(spins);
-    set({ spins, flash: { kind: 'ok', text: `Ajuda ${ajudaMeta(rec.ajuda).emoji} aplicada!` } });
+    const next: SpinRec = { ...rec, matchId, secondId: opts?.secondId, targetFootballerId: opts?.targetFootballerId };
+    if (s.online) {
+      set({ remoteSpins: { ...s.remoteSpins, [key]: next }, flash: { kind: 'ok', text: `Ajuda ${ajudaMeta(rec.ajuda).emoji} aplicada!` } });
+      void pushSpin(meId, day, next);
+    } else {
+      const spins = { ...s.spins, [key]: next };
+      saveSpins(spins);
+      set({ spins, flash: { kind: 'ok', text: `Ajuda ${ajudaMeta(rec.ajuda).emoji} aplicada!` } });
+    }
   },
+
+  setRemote: ({ picks, spins }) => set({ remotePicks: picks, remoteSpins: spins }),
 
   setFlash: (f) => set({ flash: f }),
 }));
 
+/** Upsert de um pick (substitui o do mesmo amigo+jogo). */
+function upsertPick(picks: Pick[], p: Pick): Pick[] {
+  const k = `${p.friendId}:${p.matchId}`;
+  return [...picks.filter((x) => `${x.friendId}:${x.matchId}` !== k), p];
+}
+
 // ---- seletores ----
 export function allPicks(s: GameState): Pick[] {
-  return mergePicks(s.userPicks);
+  return picksOf(s);
 }
 export function dayList(s: GameState): string[] {
   return sortedDays(s.matches);
@@ -210,20 +256,20 @@ export function matchesOfDay(s: GameState, day: string): Match[] {
 }
 export function myPick(s: GameState, matchId: string): Pick | undefined {
   if (!s.meId) return undefined;
-  return allPicks(s).find((p) => p.matchId === matchId && p.friendId === s.meId);
+  return picksOf(s).find((p) => p.matchId === matchId && p.friendId === s.meId);
 }
 export function standingsOf(s: GameState) {
-  return standingsWithHelps(FRIENDS, s.matches, allPicks(s), helpsFromSpins(s.spins));
+  return standingsWithHelps(FRIENDS, s.matches, picksOf(s), helpsFromSpins(spinsOf(s)));
 }
 /** Spin do amigo atual para um dia (ou undefined se ainda não rodou). */
 export function mySpin(s: GameState, day: string): SpinRec | undefined {
   if (!s.meId) return undefined;
-  return s.spins[`${s.meId}|${day}`];
+  return spinsOf(s)[`${s.meId}|${day}`];
 }
 /** Jogadores indisponíveis num jogo: escolhidos por outros + roubados. */
 export function claimedInMatch(s: GameState, matchId: string, exceptFriendId: string): Set<string> {
-  const set = takenInMatch(allPicks(s), matchId, exceptFriendId);
-  for (const h of helpsFromSpins(s.spins)) {
+  const set = takenInMatch(picksOf(s), matchId, exceptFriendId);
+  for (const h of helpsFromSpins(spinsOf(s))) {
     if (h.ajuda === 'rouba' && h.matchId === matchId && h.friendId !== exceptFriendId && h.targetFootballerId)
       set.add(h.targetFootballerId);
   }
@@ -234,7 +280,7 @@ export function iWasRobbed(s: GameState, matchId: string): boolean {
   if (!s.meId) return false;
   const mine = myPick(s, matchId);
   if (!mine) return false;
-  return helpsFromSpins(s.spins).some(
+  return helpsFromSpins(spinsOf(s)).some(
     (h) => h.ajuda === 'rouba' && h.matchId === matchId && h.friendId !== s.meId && h.targetFootballerId === mine.footballerId,
   );
 }
