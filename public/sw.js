@@ -1,13 +1,12 @@
 /**
- * Service worker do NumeiroTips (PWA).
+ * Service worker do RATING ROYALE (PWA).
  *
- * Estratégia conservadora — odds NUNCA são cacheadas (frescura é tudo):
- *  - Pedidos cross-origin (ex.: The Odds API, Supabase) → network-only,
- *    nunca tocados pela cache.
+ * Estratégia conservadora — dados ao vivo NUNCA são cacheados:
+ *  - Pedidos cross-origin (ex.: Supabase, APIs) → network-only.
  *  - Navegação (HTML) → network-first, cai na shell em cache se offline.
  *  - Estáticos same-origin (JS/CSS/ícones) → cache-first (têm hash no nome).
  */
-const CACHE = 'numeirotips-v1';
+const CACHE = 'ratingroyale-v2';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg', '/favicon.svg'];
 
 self.addEventListener('install', (e) => {
