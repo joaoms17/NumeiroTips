@@ -7,7 +7,7 @@
  * no Supabase (modo online).
  */
 import { create } from 'zustand';
-import type { AjudaId, Match, MatchPatch, Pick, SpinRec } from './types';
+import type { AjudaId, Footballer, Match, MatchPatch, Pick, SpinRec } from './types';
 import { FRIENDS } from './config';
 import { canPick, byKickoff, standingsWithHelps, helpsFromSpins, takenInMatch } from './scoring';
 import { spinAjuda, ajudaMeta } from './wheel';
@@ -61,18 +61,46 @@ function mergePicks(user: Pick[]): Pick[] {
   return [...map.values()];
 }
 
+/** Junta jogadores do onze ao plantel (sem duplicar por id). */
+function unionPlayers(base: Footballer[], extra: Footballer[]): Footballer[] {
+  const ids = new Set(base.map((b) => b.id));
+  return [...base, ...extra.filter((x) => !ids.has(x.id))];
+}
+
 /** Sobrepõe os patches manuais (onze oficial + notas) aos jogos base. */
 function applyPatches(base: Match[], patches: Record<string, MatchPatch>): Match[] {
   return base.map((m) => {
     const p = patches[m.id];
     if (!p) return m;
+    let lineup = m.lineup;
+    let starters = m.starters;
+    if (p.lineup) {
+      lineup = {
+        home: unionPlayers(m.lineup.home, p.lineup.home),
+        away: unionPlayers(m.lineup.away, p.lineup.away),
+      };
+      starters = [...p.lineup.home, ...p.lineup.away].map((x) => x.id);
+    }
+    if (p.starters) starters = p.starters;
     return {
       ...m,
       lineupConfirmed: p.lineupConfirmed ?? m.lineupConfirmed,
       ratings: { ...(m.ratings ?? {}), ...(p.ratings ?? {}) },
-      lineup: p.lineup ?? m.lineup,
+      lineup,
+      starters,
     };
   });
+}
+
+/** Funde um patch novo no existente (notas juntam-se; resto sobrepõe-se). */
+function mergePatch(prev: MatchPatch | undefined, next: MatchPatch): MatchPatch {
+  return {
+    matchId: next.matchId,
+    lineupConfirmed: next.lineupConfirmed ?? prev?.lineupConfirmed,
+    ratings: { ...(prev?.ratings ?? {}), ...(next.ratings ?? {}) },
+    lineup: next.lineup ?? prev?.lineup,
+    starters: next.starters ?? prev?.starters,
+  };
 }
 
 const sortedDays = (matches: Match[]) =>
@@ -295,8 +323,9 @@ export const useGame = create<GameState>((set, get) => ({
   setPatches: (patches) => set((s) => ({ patches, matches: applyPatches(s.baseMatches, patches) })),
 
   savePatch: (patch) => set((s) => {
-    const patches = { ...s.patches, [patch.matchId]: patch };
-    void pushPatch(patch);
+    const merged = mergePatch(s.patches[patch.matchId], patch);
+    const patches = { ...s.patches, [patch.matchId]: merged };
+    void pushPatch(merged);
     return { patches, matches: applyPatches(s.baseMatches, patches) };
   }),
 }));

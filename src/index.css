@@ -1156,8 +1156,15 @@ tr.detail-row > td {
 .rr-pl-row .rr-pl-name { flex: 1; }
 .rr-pl-num { color: var(--fg-2); font-size: 12px; }
 .rr-pl-row.dis { opacity: 0.4; cursor: not-allowed; }
+.rr-pl-row.starter { border-color: var(--green-dim); }
 .rr-tag-taken { font-size: 10px; color: var(--red); font-weight: 800; }
 .rr-tag-used { font-size: 10px; color: var(--amber); font-weight: 800; }
+.rr-tag-start {
+  font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--green); background: rgba(52, 211, 153, 0.12);
+  border: 1px solid var(--green-dim); border-radius: 999px; padding: 1px 6px;
+}
+.rr-pl-group-xi { margin-left: 8px; color: var(--green); font-weight: 800; letter-spacing: 0; text-transform: none; }
 
 /* ---- tabela ---- */
 .rr-tabela-h { display: flex; justify-content: space-between; align-items: baseline; font-weight: 800; font-size: 18px; margin-bottom: 14px; }

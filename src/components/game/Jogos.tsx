@@ -208,9 +208,15 @@ function PlayerPicker({
   const usedToday = usedByFriendOnDay(picks, matches, meId, match.day, match.id);
   const [q, setQ] = useState('');
 
+  const starters = new Set(match.starters ?? []);
   const candidates = [...match.lineup.home, ...match.lineup.away].filter((p) =>
     p.name.toLowerCase().includes(q.toLowerCase()),
   );
+  // titulares primeiro (quando o onze já foi importado)
+  const byTeam = (code: string) =>
+    candidates
+      .filter((p) => p.team === code)
+      .sort((a, b) => Number(starters.has(b.id)) - Number(starters.has(a.id)));
 
   const select = (f: Footballer) => {
     if (mode === 'pick') choose(match.id, f.id);
@@ -256,25 +262,28 @@ function PlayerPicker({
         <div className="rr-pl-list">
           {[match.home, match.away].map((team) => (
             <div key={team.code}>
-              <div className="rr-pl-group">{team.flag} {team.name}</div>
-              {candidates
-                .filter((p) => p.team === team.code)
-                .map((p) => {
-                  const { dis, tag } = disabledFor(p);
-                  return (
-                    <button
-                      key={p.id}
-                      className={`rr-pl-row ${dis ? 'dis' : ''}`}
-                      disabled={dis}
-                      onClick={() => select(p)}
-                    >
-                      <span className="rr-pos">{p.pos}</span>
-                      <span className="rr-pl-name">{p.name}</span>
-                      <span className="rr-pl-num">#{p.number}</span>
-                      {tag && <span className={tag === 'tomado' ? 'rr-tag-taken' : tag === 'roubar' ? 'rr-tag-steal' : 'rr-tag-used'}>{tag}</span>}
-                    </button>
-                  );
-                })}
+              <div className="rr-pl-group">
+                {team.flag} {team.name}
+                {match.lineupConfirmed && starters.size > 0 && <span className="rr-pl-group-xi">onze oficial ✅</span>}
+              </div>
+              {byTeam(team.code).map((p) => {
+                const { dis, tag } = disabledFor(p);
+                const isStarter = starters.has(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    className={`rr-pl-row ${dis ? 'dis' : ''} ${isStarter ? 'starter' : ''}`}
+                    disabled={dis}
+                    onClick={() => select(p)}
+                  >
+                    <span className="rr-pos">{p.pos}</span>
+                    <span className="rr-pl-name">{p.name}</span>
+                    {isStarter && <span className="rr-tag-start">titular</span>}
+                    <span className="rr-pl-num">#{p.number}</span>
+                    {tag && <span className={tag === 'tomado' ? 'rr-tag-taken' : tag === 'roubar' ? 'rr-tag-steal' : 'rr-tag-used'}>{tag}</span>}
+                  </button>
+                );
+              })}
             </div>
           ))}
         </div>

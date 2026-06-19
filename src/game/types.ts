@@ -48,6 +48,8 @@ export interface Match {
   lineup: { home: Footballer[]; away: Footballer[] };
   /** Onze OFICIAL já anunciado (vs. plantel/provável). */
   lineupConfirmed?: boolean;
+  /** Ids dos jogadores do ONZE oficial (marcados como titulares na escolha). */
+  starters?: string[];
   /** Rating por jogador. Ao vivo se 'live'; final se 'finished'. */
   ratings?: Record<string, number>;
   /** Origem dos dados deste jogo (para depurar / mostrar fonte). */
@@ -87,8 +89,10 @@ export interface MatchPatch {
   matchId: string;
   lineupConfirmed?: boolean;
   ratings?: Record<string, number>;
-  /** Onze oficial (substitui os candidatos a escolher), se fornecido. */
+  /** Onze oficial: jogadores garantidos na lista + marcados como titulares. */
   lineup?: { home: Footballer[]; away: Footballer[] };
+  /** Em alternativa ao lineup: só os ids do onze (se já existem no plantel). */
+  starters?: string[];
 }
 
 /** Ajuda já aplicada num jogo (derivada dos spins) — entra no cálculo. */
