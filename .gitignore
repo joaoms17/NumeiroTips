@@ -13,3 +13,11 @@ coverage
 supabase/.temp
 
 *.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+
+# Scraper output
+convocados_mundial_2026.csv
+convocados_debug.html
