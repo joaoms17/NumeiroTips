@@ -1208,6 +1208,7 @@ tr.detail-row > td {
 }
 .rr-reveal-name { font-weight: 700; flex: 1; }
 .rr-reveal-team { display: inline-flex; }
+.rr-reveal-ajuda { font-size: 15px; }
 .rr-reveal-rating { font-size: 18px; font-weight: 900; color: var(--red); }
 .rr-reveal-rating.final { color: var(--green); }
 

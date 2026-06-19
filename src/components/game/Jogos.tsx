@@ -1,7 +1,7 @@
 /** Jogos do dia + escolha do jogador (rotativo) + ajudas da roda. Mobile, animado. */
 import { useEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { useGame, allPicks, dayList, matchesOfDay, myPick, mySpin, claimedInMatch, iWasRobbed } from '../../game/store';
+import { useGame, allPicks, allSpins, dayList, matchesOfDay, myPick, mySpin, claimedInMatch, iWasRobbed } from '../../game/store';
 import { isOpen, hasStarted, matchPhase, takenInMatch, usedByFriendOnDay, pickOrder, turnBlockedBy, canChangePick } from '../../game/scoring';
 import { FRIENDS } from '../../game/config';
 import { ajudaMeta } from '../../game/wheel';
@@ -348,6 +348,7 @@ function teamByCode(match: Match, code: string): NationTeam {
 /** Revela a escolha de cada amigo (depois do jogo começar). */
 function RevealPicks({ match, picks, meId }: { match: Match; picks: ReturnType<typeof allPicks>; meId: string }) {
   const finished = matchPhase(match) === 'finished';
+  const spins = useGame(allSpins);
   return (
     <div className="rr-reveal">
       <div className="rr-reveal-h">
@@ -360,6 +361,8 @@ function RevealPicks({ match, picks, meId }: { match: Match; picks: ReturnType<t
         const fp = picks.find((p) => p.matchId === match.id && p.friendId === f.id);
         const fb = fp ? findFootballer(match, fp.footballerId) : null;
         const rating = fb ? match.ratings?.[fb.id] ?? null : null;
+        const spin = spins[`${f.id}|${match.day}`];
+        const ajuda = spin?.matchId === match.id && spin.ajuda !== 'nenhuma' ? ajudaMeta(spin.ajuda) : null;
         return (
           <div key={f.id} className={`rr-reveal-row ${f.id === meId ? 'me' : ''}`}>
             <span className="rr-reveal-chip" style={{ '--c': f.color } as CSSProperties}>{f.initials}</span>
@@ -372,6 +375,9 @@ function RevealPicks({ match, picks, meId }: { match: Match; picks: ReturnType<t
               </>
             ) : (
               <span className="rr-reveal-name muted">não escolheu 😬</span>
+            )}
+            {ajuda && (
+              <span className="rr-reveal-ajuda" title={ajuda.name}>{ajuda.emoji}</span>
             )}
             {rating != null && rating > 0 && (
               <span className={`rr-reveal-rating ${finished ? 'final' : 'live'}`}>
@@ -448,7 +454,10 @@ function matchByName(name: string, pool: Footballer[]): Footballer | null {
 function AdminImport({ onClose }: { onClose: () => void }) {
   const savePatch = useGame((s) => s.savePatch);
   const setFlash = useGame((s) => s.setFlash);
-  const matches = useGame((s) => s.matches);
+  const selectedDay = useGame((s) => s.selectedDay);
+  const allMatches = useGame((s) => s.matches);
+  const matches = allMatches.filter((m) => m.day === selectedDay);
+  const picks = useGame(allPicks);
   const [matchId, setMatchId] = useState(
     () => matches.find((m) => hasStarted(m))?.id ?? matches[0]?.id ?? '',
   );
@@ -513,7 +522,18 @@ function AdminImport({ onClose }: { onClose: () => void }) {
 
   const enterManual = () => {
     if (!match) return;
-    setReview([]);
+    const seen = new Set<string>();
+    const items: ReviewItem[] = [];
+    for (const p of picks.filter((p) => p.matchId === match.id)) {
+      if (seen.has(p.footballerId)) continue;
+      seen.add(p.footballerId);
+      const home = match.lineup.home.find((f) => f.id === p.footballerId);
+      const away = match.lineup.away.find((f) => f.id === p.footballerId);
+      const fb = home ?? away;
+      if (!fb) continue;
+      items.push({ raw: fb.name, side: home ? 'home' : 'away', rating: null, starter: true, id: fb.id, auto: true });
+    }
+    setReview(items);
     setManualMode(true);
     setErr(null);
     setPending({ side: 'home', id: '', rating: '' });
