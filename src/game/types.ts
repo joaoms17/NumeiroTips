@@ -96,6 +96,8 @@ export interface MatchPatch {
   lineup?: { home: Footballer[]; away: Footballer[] };
   /** Em alternativa ao lineup: só os ids do onze (se já existem no plantel). */
   starters?: string[];
+  homeGoals?: number;
+  awayGoals?: number;
 }
 
 /** Ajuda já aplicada num jogo (derivada dos spins) — entra no cálculo. */
