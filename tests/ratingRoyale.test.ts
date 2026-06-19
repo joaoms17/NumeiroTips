@@ -35,11 +35,21 @@ describe('RATING ROYALE — pontuação', () => {
     expect(rows[0].total).toBe(14.9);
     expect(rows[0].picks).toBe(2);
     expect(rows[0].best).toBe(8.4);
+    // b: 7.0 (m1) + pior de m2 (6.5, não escolheu) = 13.5
     expect(rows[1].friend.id).toBe('b');
-    expect(rows[1].total).toBe(7);
+    expect(rows[1].total).toBe(13.5);
+    expect(rows[1].picks).toBe(1);
   });
 
-  it('jogo não terminado não conta', () => {
+  it('quem não escolhe leva o pior rating do jogo', () => {
+    // c não escolheu em nenhum jogo: pior de m1 (7.0) + pior de m2 (6.5)
+    const rows = standings(FR, matches, picks);
+    const c = rows.find((r) => r.friend.id === 'c')!;
+    expect(c.total).toBe(13.5);
+    expect(c.picks).toBe(0); // penalização não conta como jogo "pontuado"
+  });
+
+  it('jogo não terminado não conta (nem penaliza quem não escolheu)', () => {
     const live = base('m3', '2026-06-16', 'live', { ratings: { 'X-7': 9 } });
     const rows = standings(FR, [live], [{ friendId: 'a', matchId: 'm3', footballerId: 'X-7', at: '' }]);
     expect(rows[0].total).toBe(0);

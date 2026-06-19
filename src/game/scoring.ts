@@ -22,6 +22,23 @@ export function ratingOf(match: Match, footballerId: string): number {
   return match.ratings?.[footballerId] ?? 0;
 }
 
+/**
+ * Pior rating atribuído num jogo (mínimo entre quem jogou). É o que leva quem
+ * NÃO escolheu jogador nesse jogo. 0 se ainda não há ratings.
+ */
+export function worstRatingOf(match: Match): number {
+  const vals = Object.values(match.ratings ?? {});
+  return vals.length ? Math.min(...vals) : 0;
+}
+
+/** Conjunto de jogos onde cada amigo fez palpite (palpites originais). */
+function submittedSets(friends: Friend[], picks: Pick[]): Map<string, Set<string>> {
+  const map = new Map<string, Set<string>>();
+  for (const f of friends) map.set(f.id, new Set());
+  for (const p of picks) map.get(p.friendId)?.add(p.matchId);
+  return map;
+}
+
 /** Jogadores já travados por OUTROS amigos neste jogo. */
 export function takenInMatch(picks: Pick[], matchId: string, exceptFriend?: string): Set<string> {
   const s = new Set<string>();
@@ -85,6 +102,7 @@ export function byKickoff(a: Match, b: Match): number {
 /** Classificação geral = soma de ratings por amigo. */
 export function standings(friends: Friend[], matches: Match[], picks: Pick[]): StandingRow[] {
   const byId = new Map(matches.map((m) => [m.id, m]));
+  const submitted = submittedSets(friends, picks);
   const rows: StandingRow[] = friends.map((friend) => {
     let total = 0;
     let scored = 0;
@@ -97,6 +115,11 @@ export function standings(friends: Friend[], matches: Match[], picks: Pick[]): S
       total += r;
       if (r > 0) scored++;
       if (r > best) best = r;
+    }
+    // não escolheu → leva o pior rating de cada jogo terminado que ignorou
+    for (const m of matches) {
+      if (m.status !== 'finished' || submitted.get(friend.id)!.has(m.id)) continue;
+      total += worstRatingOf(m);
     }
     return { friend, total: round1(total), picks: scored, best: round1(best) };
   });
@@ -166,6 +189,10 @@ export function standingsWithHelps(
     }
   }
 
+  // 4) NÃO ESCOLHEU: pior rating do jogo a quem não fez palpite (original — quem
+  //    foi roubado já submeteu, por isso mantém a mecânica do roubo, não esta).
+  const submitted = submittedSets(friends, picks);
+
   const rows: StandingRow[] = friends.map((friend) => {
     let total = 0, scored = 0, best = 0;
     for (const [k, e] of earned) {
@@ -173,6 +200,12 @@ export function standingsWithHelps(
       total += e;
       if (e > 0) scored++;
       if (e > best) best = e;
+    }
+    for (const m of matches) {
+      if (m.status !== 'finished') continue;
+      if (submitted.get(friend.id)!.has(m.id)) continue; // fez palpite (mesmo que roubado)
+      if (eff.get(friend.id)!.has(m.id)) continue; // ganhou jogador via roubo
+      total += worstRatingOf(m);
     }
     return { friend, total: round1(total), picks: scored, best: round1(best) };
   });

@@ -1,15 +1,14 @@
 /**
  * Estado central do RATING ROYALE (Zustand) + persistência local.
  *
- * Local-first: funciona já num dispositivo (os 4 passam o telemóvel) e está
- * pronto para sync online (Supabase) numa próxima fase — basta trocar a fonte
- * dos picks. Os palpites dos dias de exemplo (MOCK_PICKS) são a semente; os
- * palpites feitos a jogar guardam-se em localStorage.
+ * Local-first: funciona já num dispositivo (os 4 passam o telemóvel) e tem
+ * sync online (Supabase) quando configurado. Os jogos vêm da API-Football
+ * (liveFixtures.ts); os palpites guardam-se em localStorage (modo local) ou
+ * no Supabase (modo online).
  */
 import { create } from 'zustand';
 import type { AjudaId, Match, Pick, SpinRec } from './types';
 import { FRIENDS } from './config';
-import { MOCK_MATCHES, MOCK_PICKS } from './mockData';
 import { canPick, byKickoff, standingsWithHelps, helpsFromSpins, takenInMatch } from './scoring';
 import { spinAjuda, ajudaMeta } from './wheel';
 import { isOnline, pushPick, pushSpin } from './online';
@@ -53,11 +52,10 @@ function saveUserPicks(picks: Pick[]) {
   }
 }
 
-/** Junta semente + palpites do utilizador (o do utilizador sobrepõe-se). */
+/** Dedup dos palpites do utilizador (sem semente — só dados reais). */
 function mergePicks(user: Pick[]): Pick[] {
   const key = (p: Pick) => `${p.friendId}:${p.matchId}`;
   const map = new Map<string, Pick>();
-  for (const p of MOCK_PICKS) map.set(key(p), p);
   for (const p of user) map.set(key(p), p);
   return [...map.values()];
 }
@@ -70,9 +68,13 @@ function defaultDay(matches: Match[]): string {
   return open?.day ?? sortedDays(matches).slice(-1)[0] ?? '';
 }
 
+export type FixturesStatus = 'loading' | 'ready' | 'empty';
+
 export interface GameState {
   meId: string | null;
   matches: Match[];
+  /** Estado do carregamento dos jogos reais (API-Football). */
+  fixturesStatus: FixturesStatus;
   userPicks: Pick[];
   spins: Record<string, SpinRec>;
   /** Online: estado partilhado vindo do Supabase (todos os amigos). */
@@ -94,9 +96,13 @@ export interface GameState {
   /** Online: substitui o estado partilhado (após fetch/realtime). */
   setRemote: (data: { picks: Pick[]; spins: Record<string, SpinRec> }) => void;
   setFlash: (f: GameState['flash']) => void;
+  /** Substitui a lista de jogos (ex.: dados reais do API-Football). */
+  setMatches: (matches: Match[]) => void;
+  /** Atualiza o estado de carregamento dos jogos. */
+  setFixturesStatus: (status: FixturesStatus) => void;
 }
 
-/** Fonte efetiva de palpites/spins: remota (online) ou local+semente. */
+/** Fonte efetiva de palpites/spins: remota (online) ou local. */
 function picksOf(s: GameState): Pick[] {
   return s.online ? s.remotePicks : mergePicks(s.userPicks);
 }
@@ -115,13 +121,14 @@ const savedMe = (() => {
 
 export const useGame = create<GameState>((set, get) => ({
   meId: savedMe,
-  matches: MOCK_MATCHES,
+  matches: [],
+  fixturesStatus: 'loading',
   userPicks: initialUser,
   spins: loadSpins(),
   online: ONLINE,
   remotePicks: [],
   remoteSpins: {},
-  selectedDay: defaultDay(MOCK_MATCHES),
+  selectedDay: '',
   flash: null,
 
   login: (name, pin) => {
@@ -236,6 +243,14 @@ export const useGame = create<GameState>((set, get) => ({
   setRemote: ({ picks, spins }) => set({ remotePicks: picks, remoteSpins: spins }),
 
   setFlash: (f) => set({ flash: f }),
+
+  setMatches: (matches) => set((s) => ({
+    matches,
+    // mantém o dia escolhido se ainda existir; senão vai para o default
+    selectedDay: matches.some((m) => m.day === s.selectedDay) ? s.selectedDay : defaultDay(matches),
+  })),
+
+  setFixturesStatus: (fixturesStatus) => set({ fixturesStatus }),
 }));
 
 /** Upsert de um pick (substitui o do mesmo amigo+jogo). */

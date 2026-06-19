@@ -16,6 +16,24 @@ export function Jogos() {
   const selectDay = useGame((s) => s.selectDay);
   const days = useGame(dayList);
   const matches = useGame((s) => matchesOfDay(s, selectedDay));
+  const fixturesStatus = useGame((s) => s.fixturesStatus);
+
+  if (days.length === 0) {
+    return (
+      <div className="rr-jogos">
+        {fixturesStatus === 'loading' ? (
+          <div className="rr-loading">
+            <span className="rr-spinner" /> A carregar jogos do Mundial…
+          </div>
+        ) : (
+          <div className="rr-empty rr-empty-big">
+            😴 Sem jogos do Mundial nos próximos dias.
+            <small>Os jogos aparecem aqui automaticamente quando houver.</small>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="rr-jogos">
@@ -118,6 +136,8 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
         </div>
       ) : isOpen(match) ? (
         <button className="rr-choose" onClick={() => setPicker('pick')}>＋ Escolher jogador</button>
+      ) : match.status === 'finished' ? (
+        <div className="rr-nopick muted">não escolheste 😬 levaste o pior rating do jogo</div>
       ) : (
         <div className="rr-nopick muted">não escolheste 😬</div>
       )}
