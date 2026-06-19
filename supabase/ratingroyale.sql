@@ -45,10 +45,20 @@ create table if not exists public.rr_ratings (
   primary key (league, match_id)
 );
 
+-- PINs personalizados (trocados na app) — sobrepõem-se aos PINs por defeito
+create table if not exists public.rr_pins (
+  league     text not null default 'mundial2026',
+  friend_id  text not null,
+  pin        text not null,
+  updated_at timestamptz not null default now(),
+  primary key (league, friend_id)
+);
+
 -- RLS + políticas permissivas (jogo privado entre amigos)
 alter table public.rr_picks enable row level security;
 alter table public.rr_spins enable row level security;
 alter table public.rr_ratings enable row level security;
+alter table public.rr_pins enable row level security;
 
 drop policy if exists rr_picks_all on public.rr_picks;
 create policy rr_picks_all on public.rr_picks
@@ -62,11 +72,15 @@ drop policy if exists rr_ratings_all on public.rr_ratings;
 create policy rr_ratings_all on public.rr_ratings
   for all to anon using (true) with check (true);
 
+drop policy if exists rr_pins_all on public.rr_pins;
+create policy rr_pins_all on public.rr_pins
+  for all to anon using (true) with check (true);
+
 -- Realtime (atualização ao vivo) — idempotente: só adiciona se ainda não estiver
 do $$
 declare t text;
 begin
-  foreach t in array array['rr_picks', 'rr_spins', 'rr_ratings'] loop
+  foreach t in array array['rr_picks', 'rr_spins', 'rr_ratings', 'rr_pins'] loop
     if not exists (
       select 1 from pg_publication_tables
       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t

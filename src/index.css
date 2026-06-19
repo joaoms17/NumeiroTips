@@ -1211,6 +1211,20 @@ tr.detail-row > td {
 .rr-ajuda-text { display: flex; flex-direction: column; gap: 2px; }
 .rr-ajuda-text strong { font-size: 14px; }
 .rr-ajuda-text small { font-size: 13px; color: var(--fg-2); line-height: 1.45; }
+.rr-pin-row { display: flex; gap: 8px; align-items: center; }
+.rr-pin-input {
+  flex: 1; padding: 11px 12px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--bg-1); color: var(--fg-0); font-size: 18px; letter-spacing: 6px; text-align: center;
+}
+.rr-pin-save {
+  padding: 11px 16px; border-radius: 12px; border: none; background: var(--cyan); color: #04121a;
+  font-weight: 800; cursor: pointer; white-space: nowrap;
+}
+.rr-pin-save:disabled { opacity: 0.5; cursor: default; }
+.rr-reset-confirm {
+  flex: 1; padding: 12px; border-radius: 12px; border: 1px solid var(--red-dim);
+  background: rgba(255, 84, 112, 0.12); color: var(--red); font-weight: 800; cursor: pointer;
+}
 .rr-logout { margin-top: 8px; padding: 12px; border-radius: 14px; border: 1px solid var(--red-dim); background: rgba(255, 84, 112, 0.08); color: var(--red); font-weight: 800; cursor: pointer; }
 
 /* ---- animações ---- */

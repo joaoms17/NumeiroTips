@@ -1,4 +1,5 @@
-/** Regras do jogo + sair. */
+/** Regras do jogo + trocar PIN + (admin) recomeçar + sair. */
+import { useState } from 'react';
 import { useGame } from '../../game/store';
 import { friendById, APP_NAME } from '../../game/config';
 import { AJUDAS } from '../../game/wheel';
@@ -16,6 +17,7 @@ export function Regras() {
   const meId = useGame((s) => s.meId);
   const logout = useGame((s) => s.logout);
   const me = friendById(meId);
+  const isAdmin = meId === 'joao';
 
   return (
     <div className="rr-regras">
@@ -59,8 +61,12 @@ export function Regras() {
         </ul>
       </div>
 
+      {me && <ChangePin />}
+
+      {isAdmin && <AdminReset />}
+
       <div className="rr-regras-card muted" style={{ fontSize: 13 }}>
-        {APP_NAME} · jogos e resultados reais do Mundial 2026 (API-Football),
+        {APP_NAME} · jogos e resultados reais do Mundial 2026,
         com modo online para os 4 jogarem cada um no seu telemóvel.
       </div>
 
@@ -68,6 +74,59 @@ export function Regras() {
         <button className="rr-logout" onClick={logout}>
           Sair ({me.emoji} {me.name})
         </button>
+      )}
+    </div>
+  );
+}
+
+function ChangePin() {
+  const changePin = useGame((s) => s.changePin);
+  const [pin, setPin] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+
+  const save = () => {
+    const e = changePin(pin);
+    setErr(e);
+    if (!e) setPin('');
+  };
+
+  return (
+    <div className="rr-regras-card">
+      <h3>🔒 Trocar PIN</h3>
+      <p className="rr-regras-intro muted">Define um PIN novo de 4 dígitos (fica partilhado).</p>
+      <div className="rr-pin-row">
+        <input
+          className="rr-pin-input"
+          type="password"
+          inputMode="numeric"
+          maxLength={4}
+          placeholder="••••"
+          value={pin}
+          onChange={(e) => { setPin(e.target.value.replace(/\D/g, '').slice(0, 4)); setErr(null); }}
+        />
+        <button className="rr-pin-save" onClick={save} disabled={pin.length !== 4}>Guardar</button>
+      </div>
+      {err && <div className="rr-admin-err">{err}</div>}
+    </div>
+  );
+}
+
+function AdminReset() {
+  const resetGame = useGame((s) => s.resetGame);
+  const [confirm, setConfirm] = useState(false);
+  return (
+    <div className="rr-regras-card">
+      <h3>🧹 Recomeçar (admin)</h3>
+      <p className="rr-regras-intro muted">Apaga TODAS as escolhas e rodas dos 4. Não dá para desfazer.</p>
+      {confirm ? (
+        <div className="rr-pin-row">
+          <button className="rr-reset-confirm" onClick={() => { resetGame(); setConfirm(false); }}>
+            Sim, apagar tudo
+          </button>
+          <button className="rr-pin-save" onClick={() => setConfirm(false)}>Cancelar</button>
+        </div>
+      ) : (
+        <button className="rr-reset-confirm" onClick={() => setConfirm(true)}>Recomeçar o jogo</button>
       )}
     </div>
   );

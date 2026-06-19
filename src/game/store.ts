@@ -11,7 +11,7 @@ import type { AjudaId, Footballer, Match, MatchPatch, Pick, SpinRec } from './ty
 import { FRIENDS } from './config';
 import { canPick, byKickoff, standingsWithHelps, helpsFromSpins, takenInMatch, pickOrder, turnBlockedBy } from './scoring';
 import { spinAjuda, ajudaMeta } from './wheel';
-import { isOnline, pushPick, pushSpin, pushPatch } from './online';
+import { isOnline, pushPick, pushSpin, pushPatch, pushPin, clearPicksAndSpins } from './online';
 import { clearFixturesCache } from './liveFixtures';
 
 const ONLINE = isOnline();
@@ -19,6 +19,23 @@ const ONLINE = isOnline();
 const LS_ME = 'ratingroyale:me';
 const LS_PICKS = 'ratingroyale:picks';
 const LS_SPINS = 'ratingroyale:spins';
+const LS_PINS = 'ratingroyale:pins';
+
+function loadPins(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(LS_PINS);
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+function savePins(pins: Record<string, string>) {
+  try {
+    localStorage.setItem(LS_PINS, JSON.stringify(pins));
+  } catch {
+    /* ignore */
+  }
+}
 
 function loadSpins(): Record<string, SpinRec> {
   try {
@@ -132,6 +149,8 @@ export interface GameState {
   remotePicks: Pick[];
   remoteSpins: Record<string, SpinRec>;
   selectedDay: string;
+  /** PINs personalizados por amigo (sobrepõem-se aos defeitos). */
+  pins: Record<string, string>;
   /** mensagem efémera (erro/sucesso ao escolher). */
   flash: { kind: 'ok' | 'err'; text: string } | null;
 
@@ -156,6 +175,12 @@ export interface GameState {
   setPatches: (patches: Record<string, MatchPatch>) => void;
   /** Admin: guarda um patch manual (onze + notas) e partilha (Supabase). */
   savePatch: (patch: MatchPatch) => void;
+  /** Substitui os PINs personalizados (após fetch/realtime). */
+  setPins: (pins: Record<string, string>) => void;
+  /** Troca o PIN do amigo com sessão iniciada. Devolve erro ou null. */
+  changePin: (newPin: string) => string | null;
+  /** Admin: recomeça o jogo — apaga escolhas e rodas (local + Supabase). */
+  resetGame: () => void;
 }
 
 /** Fonte efetiva de palpites/spins: remota (online) ou local. */
@@ -188,13 +213,14 @@ export const useGame = create<GameState>((set, get) => ({
   remotePicks: [],
   remoteSpins: {},
   selectedDay: '',
+  pins: loadPins(),
   flash: null,
 
   login: (name, pin) => {
-    const f = FRIENDS.find(
-      (x) => x.name.toLowerCase() === name.trim().toLowerCase() && x.pin === pin.trim(),
-    );
+    const f = FRIENDS.find((x) => x.name.toLowerCase() === name.trim().toLowerCase());
     if (!f) return false;
+    const expected = get().pins[f.id] ?? f.pin; // PIN personalizado ou o de defeito
+    if (expected !== pin.trim()) return false;
     try {
       localStorage.setItem(LS_ME, f.id);
     } catch {
@@ -334,6 +360,29 @@ export const useGame = create<GameState>((set, get) => ({
     void pushPatch(merged);
     return { patches, matches: applyPatches(s.baseMatches, patches) };
   }),
+
+  setPins: (pins) => { savePins(pins); set({ pins }); },
+
+  changePin: (newPin) => {
+    const { meId } = get();
+    if (!meId) return 'Não tens sessão.';
+    if (!/^\d{4}$/.test(newPin)) return 'O PIN tem de ter 4 dígitos.';
+    const pins = { ...get().pins, [meId]: newPin };
+    savePins(pins);
+    set({ pins, flash: { kind: 'ok', text: '🔒 PIN atualizado!' } });
+    void pushPin(meId, newPin);
+    return null;
+  },
+
+  resetGame: () => {
+    saveUserPicks([]);
+    saveSpins({});
+    void clearPicksAndSpins();
+    set({
+      userPicks: [], spins: {}, remotePicks: [], remoteSpins: {},
+      flash: { kind: 'ok', text: '🧹 Jogo recomeçado!' },
+    });
+  },
 }));
 
 /** Upsert de um pick (substitui o do mesmo amigo+jogo). */
