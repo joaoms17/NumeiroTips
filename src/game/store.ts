@@ -102,7 +102,7 @@ export interface GameState {
   setFixturesStatus: (status: FixturesStatus) => void;
 }
 
-/** Fonte efetiva de palpites/spins: remota (online) ou local+semente. */
+/** Fonte efetiva de palpites/spins: remota (online) ou local. */
 function picksOf(s: GameState): Pick[] {
   return s.online ? s.remotePicks : mergePicks(s.userPicks);
 }
