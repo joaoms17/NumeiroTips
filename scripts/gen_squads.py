@@ -48,7 +48,9 @@ def pos_for(i: int) -> str:
 
 def main():
     teams = {}  # code -> list of (numero, nome, pos)
+    seen = {}   # code -> set de nomes já vistos (evitar duplicados na convocatória)
     order = []  # preserva ordem de aparição das seleções
+    dupes = 0
     with open(CSV, encoding="utf-8") as f:
         for row in csv.DictReader(f):
             sel = row["selecao"].strip()
@@ -58,10 +60,18 @@ def main():
                 continue
             if code not in teams:
                 teams[code] = []
+                seen[code] = set()
                 order.append(code)
+            nome = row["jogador"].strip()
+            nkey = nome.lower()
+            if nkey in seen[code]:
+                print(f"  ⚠️  duplicado removido: {nome} ({code})")
+                dupes += 1
+                continue
+            seen[code].add(nkey)
             idx = len(teams[code])
             num_raw = (row["numero"] or "").strip()
-            teams[code].append((num_raw, row["jogador"].strip(), pos_for(idx)))
+            teams[code].append((num_raw, nome, pos_for(idx)))
 
     lines = []
     lines.append("/**")
@@ -104,6 +114,7 @@ def main():
     print(f"Escrito {OUT}")
     print(f"Seleções: {len(order)}")
     print(f"Jogadores: {total}")
+    print(f"Duplicados removidos: {dupes}")
 
 
 if __name__ == "__main__":
