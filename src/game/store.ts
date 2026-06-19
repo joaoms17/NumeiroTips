@@ -7,13 +7,32 @@
  * palpites feitos a jogar guardam-se em localStorage.
  */
 import { create } from 'zustand';
-import type { Match, Pick } from './types';
+import type { AjudaId, Match, Pick, SpinRec } from './types';
 import { FRIENDS } from './config';
 import { MOCK_MATCHES, MOCK_PICKS } from './mockData';
-import { canPick, byKickoff, standings as computeStandings } from './scoring';
+import { canPick, byKickoff, standingsWithHelps, helpsFromSpins } from './scoring';
+import { spinAjuda, ajudaMeta } from './wheel';
 
 const LS_ME = 'ratingroyale:me';
 const LS_PICKS = 'ratingroyale:picks';
+const LS_SPINS = 'ratingroyale:spins';
+
+function loadSpins(): Record<string, SpinRec> {
+  try {
+    const raw = localStorage.getItem(LS_SPINS);
+    return raw ? (JSON.parse(raw) as Record<string, SpinRec>) : {};
+  } catch {
+    return {};
+  }
+}
+function saveSpins(spins: Record<string, SpinRec>) {
+  try {
+    localStorage.setItem(LS_SPINS, JSON.stringify(spins));
+  } catch {
+    /* ignore */
+  }
+}
+const spinKey = (friendId: string, day: string) => `${friendId}|${day}`;
 
 function loadUserPicks(): Pick[] {
   try {
@@ -52,6 +71,7 @@ export interface GameState {
   meId: string | null;
   matches: Match[];
   userPicks: Pick[];
+  spins: Record<string, SpinRec>;
   selectedDay: string;
   /** mensagem efémera (erro/sucesso ao escolher). */
   flash: { kind: 'ok' | 'err'; text: string } | null;
@@ -60,6 +80,10 @@ export interface GameState {
   logout: () => void;
   selectDay: (day: string) => void;
   choose: (matchId: string, footballerId: string) => void;
+  /** Roda a roda do dia (1×/dia). Devolve a ajuda sorteada. */
+  spin: (day: string) => AjudaId;
+  /** Aplica a ajuda do dia a um jogo (com 2º jogador / alvo conforme o tipo). */
+  applyHelp: (day: string, matchId: string, opts?: { secondId?: string; targetFootballerId?: string }) => void;
   setFlash: (f: GameState['flash']) => void;
 }
 
@@ -76,6 +100,7 @@ export const useGame = create<GameState>((set, get) => ({
   meId: savedMe,
   matches: MOCK_MATCHES,
   userPicks: initialUser,
+  spins: loadSpins(),
   selectedDay: defaultDay(MOCK_MATCHES),
   flash: null,
 
@@ -122,6 +147,46 @@ export const useGame = create<GameState>((set, get) => ({
     set({ userPicks: next, flash: { kind: 'ok', text: 'Escolha registada! 🔒' } });
   },
 
+  spin: (day) => {
+    const { meId } = get();
+    if (!meId) return 'nenhuma';
+    const key = spinKey(meId, day);
+    const existing = get().spins[key];
+    if (existing) return existing.ajuda; // já rodou hoje
+    const ajuda = spinAjuda();
+    const spins = { ...get().spins, [key]: { ajuda } as SpinRec };
+    saveSpins(spins);
+    set({ spins });
+    return ajuda;
+  },
+
+  applyHelp: (day, matchId, opts) => {
+    const { meId, matches } = get();
+    if (!meId) return;
+    const key = spinKey(meId, day);
+    const rec = get().spins[key];
+    if (!rec) {
+      set({ flash: { kind: 'err', text: 'Roda a roda primeiro.' } });
+      return;
+    }
+    if (rec.ajuda === 'nenhuma') return;
+    if (rec.matchId) {
+      set({ flash: { kind: 'err', text: 'Já usaste a ajuda de hoje.' } });
+      return;
+    }
+    const match = matches.find((m) => m.id === matchId);
+    if (!match || match.status !== 'upcoming') {
+      set({ flash: { kind: 'err', text: 'Esse jogo já fechou.' } });
+      return;
+    }
+    const spins = {
+      ...get().spins,
+      [key]: { ...rec, matchId, secondId: opts?.secondId, targetFootballerId: opts?.targetFootballerId },
+    };
+    saveSpins(spins);
+    set({ spins, flash: { kind: 'ok', text: `Ajuda ${ajudaMeta(rec.ajuda).emoji} aplicada!` } });
+  },
+
   setFlash: (f) => set({ flash: f }),
 }));
 
@@ -140,5 +205,10 @@ export function myPick(s: GameState, matchId: string): Pick | undefined {
   return allPicks(s).find((p) => p.matchId === matchId && p.friendId === s.meId);
 }
 export function standingsOf(s: GameState) {
-  return computeStandings(FRIENDS, s.matches, allPicks(s));
+  return standingsWithHelps(FRIENDS, s.matches, allPicks(s), helpsFromSpins(s.spins));
+}
+/** Spin do amigo atual para um dia (ou undefined se ainda não rodou). */
+export function mySpin(s: GameState, day: string): SpinRec | undefined {
+  if (!s.meId) return undefined;
+  return s.spins[`${s.meId}|${day}`];
 }

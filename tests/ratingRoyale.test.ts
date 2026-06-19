@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { canPick, standings, takenInMatch, usedByFriendOnDay, pickOrder } from '../src/game/scoring';
-import type { Friend, Match, Pick } from '../src/game/types';
+import { canPick, standings, standingsWithHelps, takenInMatch, usedByFriendOnDay, pickOrder } from '../src/game/scoring';
+import type { Friend, Help, Match, Pick } from '../src/game/types';
 
 const FR: Friend[] = [
   { id: 'a', name: 'A', pin: '1', emoji: '🦊', color: '#f00' },
@@ -77,5 +77,39 @@ describe('RATING ROYALE — regras de escolha', () => {
     const second = pickOrder(FR, matches, open2).map((f) => f.id);
     expect(first[0]).toBe('a');
     expect(second[0]).toBe('b'); // rodou
+  });
+});
+
+describe('RATING ROYALE — ajudas da roda', () => {
+  const m = base('mh', '2026-06-16', 'finished', { ratings: { 'X-7': 4.0, 'Y-9': 8.0 } });
+  const matches = [m];
+  const picks: Pick[] = [
+    { friendId: 'a', matchId: 'mh', footballerId: 'X-7', at: '' }, // 4.0
+    { friendId: 'b', matchId: 'mh', footballerId: 'Y-9', at: '' }, // 8.0
+  ];
+
+  it('🛡️ rede garante mínimo 6.5', () => {
+    const helps: Help[] = [{ friendId: 'a', ajuda: 'rede', matchId: 'mh' }];
+    const rows = standingsWithHelps(FR, matches, picks, helps);
+    expect(rows.find((r) => r.friend.id === 'a')!.total).toBe(6.5);
+  });
+
+  it('⭐ dois conta o melhor dos dois jogadores', () => {
+    const helps: Help[] = [{ friendId: 'a', ajuda: 'dois', matchId: 'mh', secondId: 'Y-9' }];
+    const rows = standingsWithHelps(FR, matches, picks, helps);
+    expect(rows.find((r) => r.friend.id === 'a')!.total).toBe(8.0);
+  });
+
+  it('😈 tira-2 desconta a quem tiver o jogador-alvo', () => {
+    const helps: Help[] = [{ friendId: 'a', ajuda: 'tira', matchId: 'mh', targetFootballerId: 'Y-9' }];
+    const rows = standingsWithHelps(FR, matches, picks, helps);
+    expect(rows.find((r) => r.friend.id === 'b')!.total).toBe(6.0); // 8 - 2
+  });
+
+  it('🕵️ roubo passa o jogador para o autor e tira ao dono', () => {
+    const helps: Help[] = [{ friendId: 'a', ajuda: 'rouba', matchId: 'mh', targetFootballerId: 'Y-9' }];
+    const rows = standingsWithHelps(FR, matches, picks, helps);
+    expect(rows.find((r) => r.friend.id === 'a')!.total).toBe(8.0); // rouba o Y-9
+    expect(rows.find((r) => r.friend.id === 'b')!.total).toBe(0); // perdeu-o
   });
 });

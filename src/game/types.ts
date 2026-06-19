@@ -63,3 +63,23 @@ export interface StandingRow {
   picks: number; // nº de jogos pontuados
   best: number; // melhor rating individual
 }
+
+/** Ajudas da roda diária. */
+export type AjudaId = 'rede' | 'dois' | 'nenhuma' | 'tira' | 'rouba';
+
+/** Resultado da roda de um amigo num dia (e onde a aplicou, se aplicou). */
+export interface SpinRec {
+  ajuda: AjudaId;
+  matchId?: string; // jogo onde foi aplicada
+  secondId?: string; // 2º jogador (ajuda 'dois')
+  targetFootballerId?: string; // alvo ('tira' / 'rouba')
+}
+
+/** Ajuda já aplicada num jogo (derivada dos spins) — entra no cálculo. */
+export interface Help {
+  friendId: string;
+  ajuda: AjudaId;
+  matchId: string;
+  secondId?: string;
+  targetFootballerId?: string;
+}

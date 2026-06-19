@@ -1,22 +1,14 @@
-/** Jogos do dia + escolha do jogador (rotativo). Mobile, animado. */
+/** Jogos do dia + escolha do jogador (rotativo) + ajudas da roda. Mobile, animado. */
 import { useEffect, useState, type CSSProperties } from 'react';
-import {
-  useGame,
-  allPicks,
-  dayList,
-  matchesOfDay,
-  myPick,
-} from '../../game/store';
-import {
-  isOpen,
-  ratingOf,
-  takenInMatch,
-  usedByFriendOnDay,
-  pickOrder,
-} from '../../game/scoring';
+import { useGame, allPicks, dayList, matchesOfDay, myPick, mySpin } from '../../game/store';
+import { isOpen, ratingOf, takenInMatch, usedByFriendOnDay, pickOrder } from '../../game/scoring';
 import { FRIENDS } from '../../game/config';
+import { ajudaMeta } from '../../game/wheel';
 import { dayLabel, dayNum, kickLabel, relToday } from '../../game/format';
 import type { Footballer, Match } from '../../game/types';
+import { RodaBanner } from './Roda';
+
+type HelpMode = 'second' | 'target' | 'steal';
 
 export function Jogos() {
   const meId = useGame((s) => s.meId)!;
@@ -43,6 +35,8 @@ export function Jogos() {
         })}
       </div>
 
+      <RodaBanner day={selectedDay} />
+
       <div className="rr-day-title">{dayLabel(selectedDay)}</div>
 
       <div className="rr-cards">
@@ -58,17 +52,26 @@ export function Jogos() {
 function MatchCard({ match, meId, index }: { match: Match; meId: string; index: number }) {
   const pick = useGame((s) => myPick(s, match.id));
   const picks = useGame(allPicks);
-  const [open, setOpen] = useState(false);
+  const spinRec = useGame((s) => mySpin(s, match.day));
+  const applyHelp = useGame((s) => s.applyHelp);
+  const [picker, setPicker] = useState<null | 'pick' | HelpMode>(null);
 
   const picked = pick ? findFootballer(match, pick.footballerId) : null;
   const earned = match.status === 'finished' && pick ? ratingOf(match, pick.footballerId) : null;
   const order = pickOrder(FRIENDS, [match], match);
 
+  const ajuda = spinRec && spinRec.ajuda !== 'nenhuma' ? ajudaMeta(spinRec.ajuda) : null;
+  const helpUnused = !!ajuda && !spinRec!.matchId;
+  const helpHere = spinRec?.matchId === match.id;
+
+  const useHelpHere = () => {
+    if (!ajuda) return;
+    if (ajuda.needs === 'none') applyHelp(match.day, match.id);
+    else setPicker(ajuda.needs);
+  };
+
   return (
-    <div
-      className={`rr-card slide-up status-${match.status}`}
-      style={{ animationDelay: `${index * 60}ms` }}
-    >
+    <div className={`rr-card slide-up status-${match.status}`} style={{ animationDelay: `${index * 60}ms` }}>
       <div className="rr-card-top">
         <span className="rr-stage">{match.stage}</span>
         <MatchState match={match} />
@@ -80,7 +83,6 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
         <Side flag={match.away.flag} name={match.away.name} goals={match.awayGoals} right />
       </div>
 
-      {/* fila rotativa de escolha */}
       <div className="rr-order">
         {order.map((f, i) => (
           <span key={f.id} className="rr-order-chip" style={{ '--c': f.color } as CSSProperties} title={`${i + 1}º a escolher`}>
@@ -90,7 +92,10 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
         <span className="rr-order-lbl muted">ordem de escolha</span>
       </div>
 
-      {/* a minha escolha */}
+      {helpHere && (
+        <div className="rr-help-here">{ajudaMeta(spinRec!.ajuda).emoji} ajuda aplicada aqui</div>
+      )}
+
       {picked ? (
         <div className={`rr-mypick ${earned != null ? 'scored pop' : ''}`}>
           <div className="rr-mypick-info">
@@ -101,25 +106,30 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
           {earned != null ? (
             <span className="rr-earned"><CountUp value={earned} /> <small>pts</small></span>
           ) : isOpen(match) ? (
-            <button className="rr-change" onClick={() => setOpen(true)}>trocar</button>
+            <button className="rr-change" onClick={() => setPicker('pick')}>trocar</button>
           ) : (
             <span className="rr-lock">🔒</span>
           )}
         </div>
       ) : isOpen(match) ? (
-        <button className="rr-choose" onClick={() => setOpen(true)}>
-          ＋ Escolher jogador
-        </button>
+        <button className="rr-choose" onClick={() => setPicker('pick')}>＋ Escolher jogador</button>
       ) : (
         <div className="rr-nopick muted">não escolheste 😬</div>
       )}
 
-      {open && (
+      {isOpen(match) && helpUnused && (
+        <button className="rr-use-help" onClick={useHelpHere}>
+          usar {ajuda!.emoji} {ajuda!.name} aqui
+        </button>
+      )}
+
+      {picker && (
         <PlayerPicker
           match={match}
           meId={meId}
           picks={picks}
-          onClose={() => setOpen(false)}
+          mode={picker}
+          onClose={() => setPicker(null)}
         />
       )}
     </div>
@@ -130,14 +140,17 @@ function PlayerPicker({
   match,
   meId,
   picks,
+  mode,
   onClose,
 }: {
   match: Match;
   meId: string;
   picks: ReturnType<typeof allPicks>;
+  mode: 'pick' | HelpMode;
   onClose: () => void;
 }) {
   const choose = useGame((s) => s.choose);
+  const applyHelp = useGame((s) => s.applyHelp);
   const matches = useGame((s) => s.matches);
   const taken = takenInMatch(picks, match.id, meId);
   const usedToday = usedByFriendOnDay(picks, matches, meId, match.day, match.id);
@@ -147,18 +160,40 @@ function PlayerPicker({
     p.name.toLowerCase().includes(q.toLowerCase()),
   );
 
-  const pick = (f: Footballer) => {
-    choose(match.id, f.id);
+  const select = (f: Footballer) => {
+    if (mode === 'pick') choose(match.id, f.id);
+    else if (mode === 'second') applyHelp(match.day, match.id, { secondId: f.id });
+    else applyHelp(match.day, match.id, { targetFootballerId: f.id }); // target / steal
     onClose();
   };
+
+  const disabledFor = (f: Footballer): { dis: boolean; tag?: string } => {
+    if (mode === 'pick') {
+      if (taken.has(f.id)) return { dis: true, tag: 'tomado' };
+      if (usedToday.has(f.id)) return { dis: true, tag: 'usado hoje' };
+      return { dis: false };
+    }
+    if (mode === 'steal') {
+      // só dá para roubar jogadores já escolhidos por OUTROS neste jogo
+      return takenInMatch(picks, match.id, meId).has(f.id) ? { dis: false, tag: 'roubar' } : { dis: true };
+    }
+    return { dis: false }; // second / target: qualquer jogador
+  };
+
+  const title =
+    mode === 'second' ? '⭐ Escolhe o 2º jogador'
+    : mode === 'target' ? '😈 A quem tirar 2 pontos?'
+    : mode === 'steal' ? '🕵️ Roubar qual jogador?'
+    : 'Escolher jogador';
 
   return (
     <div className="rr-modal" onClick={onClose}>
       <div className="rr-sheet slide-in" onClick={(e) => e.stopPropagation()}>
         <div className="rr-sheet-h">
-          <span>{match.home.flag} {match.home.name} <small>vs</small> {match.away.name} {match.away.flag}</span>
+          <span>{title}</span>
           <button className="rr-x" onClick={onClose}>✕</button>
         </div>
+        {mode === 'target' && <div className="rr-blind muted">às cegas — não vês quem o escolheu</div>}
         <input
           className="rr-search"
           placeholder="Procurar jogador…"
@@ -173,21 +208,18 @@ function PlayerPicker({
               {candidates
                 .filter((p) => p.team === team.code)
                 .map((p) => {
-                  const isTaken = taken.has(p.id);
-                  const isUsed = usedToday.has(p.id);
-                  const dis = isTaken || isUsed;
+                  const { dis, tag } = disabledFor(p);
                   return (
                     <button
                       key={p.id}
                       className={`rr-pl-row ${dis ? 'dis' : ''}`}
                       disabled={dis}
-                      onClick={() => pick(p)}
+                      onClick={() => select(p)}
                     >
                       <span className="rr-pos">{p.pos}</span>
                       <span className="rr-pl-name">{p.name}</span>
                       <span className="rr-pl-num">#{p.number}</span>
-                      {isTaken && <span className="rr-tag-taken">tomado</span>}
-                      {isUsed && !isTaken && <span className="rr-tag-used">usado hoje</span>}
+                      {tag && <span className={tag === 'tomado' ? 'rr-tag-taken' : tag === 'roubar' ? 'rr-tag-steal' : 'rr-tag-used'}>{tag}</span>}
                     </button>
                   );
                 })}
@@ -222,9 +254,8 @@ function CountUp({ value }: { value: number }) {
   useEffect(() => {
     let raf = 0;
     const start = performance.now();
-    const dur = 700;
     const tick = (t: number) => {
-      const k = Math.min(1, (t - start) / dur);
+      const k = Math.min(1, (t - start) / 700);
       setN(value * (1 - Math.pow(1 - k, 3)));
       if (k < 1) raf = requestAnimationFrame(tick);
     };
