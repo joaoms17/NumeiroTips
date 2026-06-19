@@ -349,6 +349,7 @@ function teamByCode(match: Match, code: string): NationTeam {
 function RevealPicks({ match, picks, meId }: { match: Match; picks: ReturnType<typeof allPicks>; meId: string }) {
   const finished = matchPhase(match) === 'finished';
   const spins = useGame(allSpins);
+  const spinList = Object.entries(spins);
   return (
     <div className="rr-reveal">
       <div className="rr-reveal-h">
@@ -360,29 +361,64 @@ function RevealPicks({ match, picks, meId }: { match: Match; picks: ReturnType<t
       {FRIENDS.map((f) => {
         const fp = picks.find((p) => p.matchId === match.id && p.friendId === f.id);
         const fb = fp ? findFootballer(match, fp.footballerId) : null;
-        const rating = fb ? match.ratings?.[fb.id] ?? null : null;
+        const rating = fb ? (match.ratings?.[fb.id] ?? null) : null;
         const spin = spins[`${f.id}|${match.day}`];
         const ajuda = spin?.matchId === match.id && spin.ajuda !== 'nenhuma' ? ajudaMeta(spin.ajuda) : null;
+
+        // Dois: tem 2º jogador neste jogo?
+        const doisSecondId = spin?.ajuda === 'dois' && spin.matchId === match.id ? spin.secondId : undefined;
+        const doisFb = doisSecondId ? findFootballer(match, doisSecondId) : null;
+        const doisRating = doisFb ? (match.ratings?.[doisFb.id] ?? null) : null;
+        const doisWinner = doisFb && doisRating != null && rating != null
+          ? (doisRating >= rating ? 'second' : 'first')
+          : doisFb ? 'second' : 'first';
+        const effectiveRating = doisFb
+          ? Math.max(rating ?? 0, doisRating ?? 0)
+          : rating;
+
+        // Tira-2: algum spin tira o jogador deste amigo neste jogo?
+        const tiraed = fb
+          ? spinList.some(([, s]) => s.ajuda === 'tira' && s.matchId === match.id && s.targetFootballerId === fb.id)
+          : false;
+        const displayRating = tiraed && effectiveRating != null ? Math.max(0, effectiveRating - 2) : effectiveRating;
+
         return (
           <div key={f.id} className={`rr-reveal-row ${f.id === meId ? 'me' : ''}`}>
             <span className="rr-reveal-chip" style={{ '--c': f.color } as CSSProperties}>{f.initials}</span>
-            {fb ? (
-              <>
-                <span className="rr-reveal-name">{fb.name}</span>
-                <span className="rr-reveal-team">
-                  <Flag cc={teamByCode(match, fb.team).cc} flag={teamByCode(match, fb.team).flag} name={fb.team} />
+            <div className="rr-reveal-body">
+              {fb ? (
+                <div className="rr-reveal-main">
+                  <span className={`rr-reveal-name ${doisFb && doisWinner === 'second' ? 'muted' : ''}`}>
+                    {doisFb && doisWinner === 'first' && <span className="rr-star">⭐</span>}{fb.name}
+                  </span>
+                  <span className="rr-reveal-team">
+                    <Flag cc={teamByCode(match, fb.team).cc} flag={teamByCode(match, fb.team).flag} name={fb.team} />
+                  </span>
+                </div>
+              ) : (
+                <div className="rr-reveal-main"><span className="rr-reveal-name muted">não escolheu 😬</span></div>
+              )}
+              {doisFb && (
+                <div className="rr-reveal-second">
+                  <span className={`rr-reveal-name ${doisWinner === 'first' ? 'muted' : ''}`}>
+                    {doisWinner === 'second' && <span className="rr-star">⭐</span>}{doisFb.name}
+                  </span>
+                  <span className="rr-reveal-team">
+                    <Flag cc={teamByCode(match, doisFb.team).cc} flag={teamByCode(match, doisFb.team).flag} name={doisFb.team} />
+                  </span>
+                </div>
+              )}
+            </div>
+            {ajuda && <span className="rr-reveal-ajuda" title={ajuda.name}>{ajuda.emoji}</span>}
+            {displayRating != null && displayRating > 0 && (
+              <div className="rr-reveal-score">
+                {tiraed && effectiveRating != null && (
+                  <span className="rr-score-struck">{effectiveRating.toFixed(1)}</span>
+                )}
+                <span className={`rr-reveal-rating ${finished ? 'final' : 'live'}`}>
+                  <CountUp value={displayRating} />
                 </span>
-              </>
-            ) : (
-              <span className="rr-reveal-name muted">não escolheu 😬</span>
-            )}
-            {ajuda && (
-              <span className="rr-reveal-ajuda" title={ajuda.name}>{ajuda.emoji}</span>
-            )}
-            {rating != null && rating > 0 && (
-              <span className={`rr-reveal-rating ${finished ? 'final' : 'live'}`}>
-                <CountUp value={rating} />
-              </span>
+              </div>
             )}
           </div>
         );
