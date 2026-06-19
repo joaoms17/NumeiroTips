@@ -6,7 +6,7 @@ import { isOpen, hasStarted, takenInMatch, usedByFriendOnDay, pickOrder, turnBlo
 import { FRIENDS } from '../../game/config';
 import { ajudaMeta } from '../../game/wheel';
 import { dayLabel, dayNum, kickLabel, relToday } from '../../game/format';
-import type { Footballer, Match, MatchPatch, NationTeam } from '../../game/types';
+import type { Footballer, Match, NationTeam } from '../../game/types';
 import { RodaBanner } from './Roda';
 import { Flag } from './Flag';
 
@@ -405,50 +405,57 @@ async function fileToJpegBase64(file: File, maxW = 1280): Promise<string> {
 
 interface VisionPlayer { side?: string; number?: number | null; name?: string; rating?: number | null; starter?: boolean }
 
-/** Constrói o patch (onze + notas) a partir dos jogadores lidos pela visão. */
-function patchFromVision(match: Match, players: VisionPlayer[]): MatchPatch {
-  const home: Footballer[] = [];
-  const away: Footballer[] = [];
-  const ratings: Record<string, number> = {};
-  const starters: string[] = [];
-  for (const p of players) {
-    if (typeof p.number !== 'number' || !p.name) continue; // precisa de número p/ id estável
-    const code = p.side === 'away' ? match.away.code : match.home.code;
-    const id = `${code}-${p.number}`;
-    const fb: Footballer = { id, name: p.name, team: code, pos: 'MED', number: p.number };
-    (p.side === 'away' ? away : home).push(fb);
-    if (typeof p.rating === 'number' && p.rating > 0) ratings[id] = Math.round(p.rating * 10) / 10;
-    if (p.starter !== false) starters.push(id);
-  }
-  return {
-    matchId: match.id,
-    lineupConfirmed: starters.length > 0,
-    ratings: Object.keys(ratings).length ? ratings : undefined,
-    lineup: { home, away },
-    starters: starters.length ? starters : undefined,
-  };
+interface ReviewItem {
+  raw: string;             // nome lido na imagem
+  side: 'home' | 'away';
+  rating: number | null;
+  starter: boolean;
+  id: string;              // id do jogador na app ('' = ignorar / por confirmar)
+  auto: boolean;           // reconhecido automaticamente?
 }
 
-/** Painel admin: importa onze + notas por IMAGEM (visão AI) ou colando JSON. */
+function normName(s: string): string {
+  return s
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '') // tira acentos
+    .toLowerCase()
+    .replace(/[^a-z ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Casa um nome lido com um jogador do plantel — só devolve matches CONFIANTES. */
+function matchByName(name: string, pool: Footballer[]): Footballer | null {
+  const n = normName(name);
+  if (!n) return null;
+  const exact = pool.filter((p) => normName(p.name) === n);
+  if (exact.length === 1) return exact[0];
+  const surname = n.split(' ').slice(-1)[0];
+  const bySurname = pool.filter((p) => normName(p.name).split(' ').includes(surname));
+  if (bySurname.length === 1) return bySurname[0];
+  const contains = pool.filter((p) => { const pn = normName(p.name); return pn.includes(n) || n.includes(pn); });
+  if (contains.length === 1) return contains[0];
+  return null; // ambíguo → o admin decide
+}
+
+/** Painel admin: importa onze + notas por IMAGEM (visão AI), mapeando por NOME. */
 function AdminImport({ onClose }: { onClose: () => void }) {
   const savePatch = useGame((s) => s.savePatch);
   const setFlash = useGame((s) => s.setFlash);
   const matches = useGame((s) => s.matches);
-  const matchIds = new Set(matches.map((m) => m.id));
   const [matchId, setMatchId] = useState(
     () => matches.find((m) => !hasStarted(m))?.id ?? matches[0]?.id ?? '',
   );
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
-  const [text, setText] = useState('');
+  const [review, setReview] = useState<ReviewItem[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const match = matches.find((m) => m.id === matchId);
 
   const extract = async () => {
     if (!match || files.length === 0) return;
-    setBusy(true);
-    setErr(null);
+    setBusy(true); setErr(null); setReview(null);
     try {
       const images = await Promise.all(files.slice(0, 3).map((f) => fileToJpegBase64(f)));
       const res = await fetch('/api/vision', {
@@ -460,55 +467,84 @@ function AdminImport({ onClose }: { onClose: () => void }) {
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
       const players: VisionPlayer[] = Array.isArray(data.players) ? data.players : [];
       if (players.length === 0) throw new Error('não li jogadores na imagem');
-      setText(JSON.stringify(patchFromVision(match, players), null, 2));
-      setFlash({ kind: 'ok', text: `📷 Li ${players.length} jogadores — confere e grava.` });
+      const items: ReviewItem[] = players
+        .filter((p) => p.name)
+        .map((p) => {
+          const side: 'home' | 'away' = p.side === 'away' ? 'away' : 'home';
+          const pool = side === 'away' ? match.lineup.away : match.lineup.home;
+          const hit = matchByName(p.name!, pool); // MAPEA POR NOME (números são aleatórios)
+          return {
+            raw: p.name!,
+            side,
+            rating: typeof p.rating === 'number' && p.rating > 0 ? Math.round(p.rating * 10) / 10 : null,
+            starter: p.starter !== false,
+            id: hit?.id ?? '',
+            auto: !!hit,
+          };
+        });
+      setReview(items);
+      const dudas = items.filter((i) => !i.id).length;
+      setFlash({
+        kind: dudas ? 'err' : 'ok',
+        text: dudas ? `📷 ${items.length} lidos · ${dudas} por confirmar` : `📷 ${items.length} reconhecidos`,
+      });
     } catch (e) {
-      setErr(`Não consegui ler a imagem: ${(e as Error).message}. Podes colar o bloco à mão.`);
+      setErr(`Não consegui ler a imagem: ${(e as Error).message}.`);
     } finally {
       setBusy(false);
     }
   };
 
-  const apply = () => {
-    let data: unknown;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      setErr('JSON inválido — confirma que está tudo.');
+  const setItemId = (idx: number, id: string) =>
+    setReview((r) => (r ? r.map((it, i) => (i === idx ? { ...it, id } : it)) : r));
+
+  const save = () => {
+    if (!match || !review) return;
+    const home: Footballer[] = [];
+    const away: Footballer[] = [];
+    const ratings: Record<string, number> = {};
+    const starters: string[] = [];
+    const seen = new Set<string>();
+    for (const it of review) {
+      if (!it.id || seen.has(it.id)) continue;
+      const pool = it.side === 'away' ? match.lineup.away : match.lineup.home;
+      const fb = pool.find((p) => p.id === it.id);
+      if (!fb) continue;
+      seen.add(it.id);
+      (it.side === 'away' ? away : home).push(fb);
+      if (it.rating != null) ratings[it.id] = it.rating;
+      if (it.starter) starters.push(it.id);
+    }
+    if (home.length + away.length === 0) {
+      setErr('Nada para gravar — confirma pelo menos um jogador.');
       return;
     }
-    const list = (Array.isArray(data) ? data : [data]) as MatchPatch[];
-    const valid = list.filter((p) => p && typeof p.matchId === 'string');
-    if (valid.length === 0) {
-      setErr('Sem "matchId" — o bloco não parece um patch de jogo.');
-      return;
-    }
-    const unknown = valid.filter((p) => !matchIds.has(p.matchId)).map((p) => p.matchId);
-    valid.forEach((p) => savePatch(p));
-    onClose();
-    setFlash({
-      kind: unknown.length ? 'err' : 'ok',
-      text: unknown.length
-        ? `Guardei ${valid.length}, mas estes IDs não existem: ${unknown.join(', ')}`
-        : `✅ ${valid.length} jogo(s) atualizado(s)!`,
+    savePatch({
+      matchId: match.id,
+      lineupConfirmed: starters.length > 0,
+      ratings: Object.keys(ratings).length ? ratings : undefined,
+      lineup: { home, away },
+      starters: starters.length ? starters : undefined,
     });
+    onClose();
+    setFlash({ kind: 'ok', text: `✅ ${home.length + away.length} jogadores atualizados!` });
   };
 
   return createPortal(
     <div className="rr-modal" onClick={onClose}>
       <div className="rr-sheet slide-in" onClick={(e) => e.stopPropagation()}>
         <div className="rr-sheet-h">
-          <span>✏️ Importar onze + notas (admin)</span>
+          <span>📷 Importar onze + notas (admin)</span>
           <button className="rr-x" onClick={onClose}>✕</button>
         </div>
 
         <p className="rr-admin-help muted">
-          📷 Escolhe o jogo, mete o(s) print(s) do FlashScore e carrega em <b>Extrair</b> — a IA lê o
-          onze e as notas. Confere o resultado e grava (fica visível para os 4 em tempo real).
+          Escolhe o jogo, mete o(s) print(s) do FlashScore e <b>Extrair</b>. A IA lê os <b>nomes</b> e as
+          notas e eu caso-os com o plantel. Confirma os que ficarem em dúvida e grava.
         </p>
 
         <label className="rr-admin-lbl">Jogo</label>
-        <select className="rr-admin-select" value={matchId} onChange={(e) => setMatchId(e.target.value)}>
+        <select className="rr-admin-select" value={matchId} onChange={(e) => { setMatchId(e.target.value); setReview(null); }}>
           {matches.map((m) => (
             <option key={m.id} value={m.id}>{m.home.name} × {m.away.name} · {dayLabel(m.day)}</option>
           ))}
@@ -526,18 +562,33 @@ function AdminImport({ onClose }: { onClose: () => void }) {
           {busy ? <span className="rr-spinner sm" /> : '📷'} Extrair da imagem
         </button>
 
-        <label className="rr-admin-lbl">Bloco (gerado pela imagem ou colado)</label>
-        <textarea
-          className="rr-admin-text"
-          placeholder={'{\n  "matchId": "wc-bra-hai",\n  "lineupConfirmed": true,\n  "ratings": { "BRA-26": 8.3 }\n}'}
-          value={text}
-          onChange={(e) => { setText(e.target.value); setErr(null); }}
-          rows={9}
-        />
         {err && <div className="rr-admin-err">{err}</div>}
-        <button className="rr-admin-save" onClick={apply} disabled={!text.trim()}>
-          Gravar e partilhar
-        </button>
+
+        {review && match && (
+          <>
+            <label className="rr-admin-lbl">
+              Confere ({review.filter((i) => !i.id).length} por confirmar) — nome lido → jogador
+            </label>
+            <div className="rr-review">
+              {review.map((it, i) => {
+                const pool = it.side === 'away' ? match.lineup.away : match.lineup.home;
+                return (
+                  <div key={i} className={`rr-review-row ${it.id ? '' : 'unresolved'}`}>
+                    <span className="rr-review-side">{it.side === 'home' ? match.home.code : match.away.code}</span>
+                    <span className="rr-review-raw">
+                      {it.raw}{it.rating != null && <b className="rr-review-rt"> {it.rating.toFixed(1)}</b>}
+                    </span>
+                    <select className="rr-review-select" value={it.id} onChange={(e) => setItemId(i, e.target.value)}>
+                      <option value="">— ignorar —</option>
+                      {pool.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+            <button className="rr-admin-save" onClick={save}>Gravar e partilhar</button>
+          </>
+        )}
       </div>
     </div>,
     document.body,
