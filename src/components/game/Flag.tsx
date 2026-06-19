@@ -1,17 +1,21 @@
 /**
- * Bandeira do país como IMAGEM (flagcdn) em vez de emoji.
- * Os emojis de bandeira não aparecem no Windows (a font não os traz), por isso
- * usamos imagens. Sem `cc` (ex.: equipas vindas da API), cai no emoji.
+ * Bandeira do país como IMAGEM local (public/flags/<cc>.svg).
+ * Os emojis de bandeira não aparecem no Windows; e CDNs externos (flagcdn)
+ * podem falhar/bloquear. Por isso servimos as SVGs nós mesmos (same-origin,
+ * funciona offline). Sem `cc` ou se a imagem falhar, cai no emoji.
  */
+import { useState } from 'react';
+
 export function Flag({ cc, flag, name }: { cc?: string; flag?: string; name?: string }) {
-  if (!cc) return <span className="rr-flag-emoji">{flag ?? '🏳️'}</span>;
+  const [failed, setFailed] = useState(false);
+  if (!cc || failed) return <span className="rr-flag-emoji">{flag ?? '🏳️'}</span>;
   return (
     <img
       className="rr-flag-img"
-      src={`https://flagcdn.com/w40/${cc}.png`}
-      srcSet={`https://flagcdn.com/w80/${cc}.png 2x`}
+      src={`/flags/${cc}.svg`}
       alt={name ?? ''}
       loading="lazy"
+      onError={() => setFailed(true)}
     />
   );
 }
