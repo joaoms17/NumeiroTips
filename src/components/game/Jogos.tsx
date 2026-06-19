@@ -1,5 +1,6 @@
 /** Jogos do dia + escolha do jogador (rotativo) + ajudas da roda. Mobile, animado. */
 import { useEffect, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { useGame, allPicks, dayList, matchesOfDay, myPick, mySpin, claimedInMatch, iWasRobbed } from '../../game/store';
 import { isOpen, ratingOf, takenInMatch, usedByFriendOnDay, pickOrder, turnBlockedBy } from '../../game/scoring';
 import { FRIENDS } from '../../game/config';
@@ -256,7 +257,7 @@ function PlayerPicker({
     : mode === 'steal' ? '🕵️ Roubar qual jogador?'
     : 'Escolher jogador';
 
-  return (
+  return createPortal(
     <div className="rr-modal" onClick={onClose}>
       <div className="rr-sheet slide-in" onClick={(e) => e.stopPropagation()}>
         <div className="rr-sheet-h">
@@ -300,7 +301,8 @@ function PlayerPicker({
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -378,7 +380,7 @@ function AdminImport({ onClose }: { onClose: () => void }) {
     });
   };
 
-  return (
+  return createPortal(
     <div className="rr-modal" onClick={onClose}>
       <div className="rr-sheet slide-in" onClick={(e) => e.stopPropagation()}>
         <div className="rr-sheet-h">
@@ -402,6 +404,7 @@ function AdminImport({ onClose }: { onClose: () => void }) {
           Gravar e partilhar
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
