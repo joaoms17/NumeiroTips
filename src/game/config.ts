@@ -9,10 +9,10 @@ export const USA_TZ = 'America/New_York';
 
 /** Os 4 jogadores. Entram com o nome + PIN. */
 export const FRIENDS: Friend[] = [
-  { id: 'ruben', name: 'RUBEN', pin: '9999', emoji: '🦊', color: '#ff5a5f' },
-  { id: 'joao', name: 'JOAO', pin: '8888', emoji: '🐉', color: '#22d3ee' },
-  { id: 'tiago', name: 'TIAGO', pin: '7777', emoji: '🦅', color: '#a78bfa' },
-  { id: 'jaime', name: 'JAIME', pin: '6666', emoji: '🐺', color: '#34d399' },
+  { id: 'ruben', name: 'RUBEN', pin: '9999', emoji: '🦊', initials: 'RS', color: '#ff5a5f' },
+  { id: 'joao', name: 'JOAO', pin: '8888', emoji: '🐉', initials: 'JS', color: '#22d3ee' },
+  { id: 'tiago', name: 'TIAGO', pin: '7777', emoji: '🦅', initials: 'TA', color: '#a78bfa' },
+  { id: 'jaime', name: 'JAIME', pin: '6666', emoji: '🐺', initials: 'JR', color: '#34d399' },
 ];
 
 export function friendById(id: string | null | undefined): Friend | undefined {

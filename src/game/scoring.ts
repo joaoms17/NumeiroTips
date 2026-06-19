@@ -87,10 +87,13 @@ export function canPick(
   return { ok: true };
 }
 
-/** Ordem de escolha (rotativa) para um jogo: roda os amigos pelo índice do jogo. */
+/**
+ * Ordem de escolha (rotativa): roda os amigos pela posição do jogo na lista
+ * (ordenada por hora). A cada jogo, quem começa avança um lugar.
+ */
 export function pickOrder(friends: Friend[], matches: Match[], match: Match): Friend[] {
-  const dayMatches = matches.filter((m) => m.day === match.day).sort(byKickoff);
-  const idx = Math.max(0, dayMatches.findIndex((m) => m.id === match.id));
+  const sorted = [...matches].sort(byKickoff);
+  const idx = Math.max(0, sorted.findIndex((m) => m.id === match.id));
   const n = friends.length;
   return Array.from({ length: n }, (_, i) => friends[(i + idx) % n]);
 }

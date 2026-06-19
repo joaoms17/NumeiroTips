@@ -11,6 +11,8 @@ export interface Friend {
   name: string;
   pin: string;
   emoji: string;
+  /** Iniciais mostradas na ordem de escolha (ex.: 'RS'). */
+  initials: string;
   color: string;
 }
 

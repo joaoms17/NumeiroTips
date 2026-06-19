@@ -3,10 +3,10 @@ import { canPick, standings, standingsWithHelps, takenInMatch, usedByFriendOnDay
 import type { Friend, Help, Match, Pick } from '../src/game/types';
 
 const FR: Friend[] = [
-  { id: 'a', name: 'A', pin: '1', emoji: '🦊', color: '#f00' },
-  { id: 'b', name: 'B', pin: '2', emoji: '🐉', color: '#0f0' },
-  { id: 'c', name: 'C', pin: '3', emoji: '🦅', color: '#00f' },
-  { id: 'd', name: 'D', pin: '4', emoji: '🐺', color: '#ff0' },
+  { id: 'a', name: 'A', pin: '1', emoji: '🦊', initials: 'AA', color: '#f00' },
+  { id: 'b', name: 'B', pin: '2', emoji: '🐉', initials: 'BB', color: '#0f0' },
+  { id: 'c', name: 'C', pin: '3', emoji: '🦅', initials: 'CC', color: '#00f' },
+  { id: 'd', name: 'D', pin: '4', emoji: '🐺', initials: 'DD', color: '#ff0' },
 ];
 
 const base = (id: string, day: string, status: Match['status'], extra: Partial<Match> = {}): Match => ({
