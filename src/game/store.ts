@@ -253,7 +253,11 @@ export const useGame = create<GameState>((set, get) => ({
     }
     const order = pickOrder(FRIENDS, matches, match);
     const cur = picksOf(s);
-    const alreadyPicked = cur.some((p) => p.matchId === matchId && p.friendId === meId);
+    // pick órfão (jogador já não existe no plantel) NÃO conta como escolhido →
+    // pode reescolher livremente, sem ficar trancado.
+    const lineupIds = new Set([...match.lineup.home, ...match.lineup.away].map((f) => f.id));
+    const myRec = cur.find((p) => p.matchId === matchId && p.friendId === meId);
+    const alreadyPicked = !!myRec && lineupIds.has(myRec.footballerId);
     if (alreadyPicked) {
       // trocar: só enquanto ninguém a seguir já tiver escolhido
       if (!canChangePick(cur, order, matchId, meId)) {
