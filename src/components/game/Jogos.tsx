@@ -2,7 +2,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useGame, allPicks, dayList, matchesOfDay, myPick, mySpin, claimedInMatch, iWasRobbed } from '../../game/store';
-import { isOpen, hasStarted, takenInMatch, usedByFriendOnDay, pickOrder, turnBlockedBy } from '../../game/scoring';
+import { isOpen, hasStarted, takenInMatch, usedByFriendOnDay, pickOrder, turnBlockedBy, canChangePick } from '../../game/scoring';
 import { FRIENDS } from '../../game/config';
 import { ajudaMeta } from '../../game/wheel';
 import { dayLabel, dayNum, kickLabel, relToday } from '../../game/format';
@@ -109,6 +109,7 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
   const pickedIds = new Set(picks.filter((p) => p.matchId === match.id).map((p) => p.friendId));
   const currentTurn = order.find((f) => !pickedIds.has(f.id)) ?? null;
   const waitingFor = open ? turnBlockedBy(picks, order, match.id, meId) : null;
+  const canChange = canChangePick(picks, order, match.id, meId); // trancada quando o próximo escolhe
 
   const ajuda = spinRec && spinRec.ajuda !== 'nenhuma' ? ajudaMeta(spinRec.ajuda) : null;
   const helpUnused = !!ajuda && !spinRec!.matchId;
@@ -167,7 +168,11 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
             <span className="rr-pl-name">{picked.name}</span>
             <span className="rr-pl-team"><Flag cc={teamByCode(match, picked.team).cc} flag={teamByCode(match, picked.team).flag} name={picked.team} /></span>
           </div>
-          <button className="rr-change" onClick={() => setPicker('pick')}>trocar</button>
+          {canChange ? (
+            <button className="rr-change" onClick={() => setPicker('pick')}>trocar</button>
+          ) : (
+            <span className="rr-lock" title="Já não podes trocar — alguém a seguir já escolheu">🔒</span>
+          )}
         </div>
       ) : waitingFor ? (
         <div className="rr-wait muted">⏳ aguarda a vez de <b>{waitingFor.initials}</b> · {waitingFor.name}</div>

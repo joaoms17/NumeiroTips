@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canPick, standings, standingsWithHelps, takenInMatch, usedByFriendOnDay, pickOrder, turnBlockedBy, hasStarted } from '../src/game/scoring';
+import { canPick, standings, standingsWithHelps, takenInMatch, usedByFriendOnDay, pickOrder, turnBlockedBy, canChangePick, hasStarted } from '../src/game/scoring';
 import type { Friend, Help, Match, Pick } from '../src/game/types';
 
 const FR: Friend[] = [
@@ -95,6 +95,17 @@ describe('RATING ROYALE — regras de escolha', () => {
     const second = pickOrder(FR, matches, open2).map((f) => f.id);
     expect(first[0]).toBe('a');
     expect(second[0]).toBe('b'); // rodou
+  });
+
+  it('não se pode trocar depois de alguém a seguir escolher', () => {
+    const order = pickOrder(FR, matches, open); // [a, b, c, d]
+    // só 'a' e 'b' escolheram → 'a' (antes de 'b') já não troca; 'b' ainda troca
+    const picks = [
+      { friendId: 'a', matchId: 'o1', footballerId: 'X-7', at: '' },
+      { friendId: 'b', matchId: 'o1', footballerId: 'Y-9', at: '' },
+    ];
+    expect(canChangePick(picks, order, 'o1', 'a')).toBe(false); // 'b' (a seguir) escolheu
+    expect(canChangePick(picks, order, 'o1', 'b')).toBe(true);  // ninguém depois de 'b'
   });
 
   it('só se pode escolher na sua vez (ordem respeitada)', () => {

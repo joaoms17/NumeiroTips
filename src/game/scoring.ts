@@ -128,6 +128,25 @@ export function turnBlockedBy(
   return null;
 }
 
+/**
+ * Ainda posso trocar a minha escolha? Só enquanto NINGUÉM a seguir a mim na
+ * ordem tiver escolhido (assim que o próximo escolhe, a minha tranca).
+ */
+export function canChangePick(
+  picks: Pick[],
+  order: Friend[],
+  matchId: string,
+  friendId: string,
+): boolean {
+  const picked = new Set(picks.filter((p) => p.matchId === matchId).map((p) => p.friendId));
+  const myIdx = order.findIndex((f) => f.id === friendId);
+  if (myIdx < 0) return true;
+  for (let i = myIdx + 1; i < order.length; i++) {
+    if (picked.has(order[i].id)) return false; // alguém depois já escolheu
+  }
+  return true;
+}
+
 /** Classificação geral = soma de ratings por amigo. */
 export function standings(friends: Friend[], matches: Match[], picks: Pick[]): StandingRow[] {
   const byId = new Map(matches.map((m) => [m.id, m]));
