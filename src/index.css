@@ -1162,7 +1162,10 @@ tr.detail-row > td {
 
 /* ---- revelação das escolhas (depois do jogo começar) ---- */
 .rr-reveal { margin-top: 10px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
-.rr-reveal-h { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--fg-2); padding: 8px 12px; background: var(--bg-3); }
+.rr-reveal-h { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--fg-2); padding: 8px 12px; background: var(--bg-3); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rr-reveal-tag { font-size: 9px; font-weight: 800; padding: 1px 7px; border-radius: 999px; letter-spacing: 0.5px; }
+.rr-reveal-tag.live { color: var(--red); background: rgba(255, 84, 112, 0.14); border: 1px solid var(--red-dim); }
+.rr-reveal-tag.final { color: var(--green); background: rgba(46, 230, 166, 0.12); border: 1px solid var(--green-dim); }
 .rr-reveal-row { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-top: 1px solid var(--border); }
 .rr-reveal-row.me { background: rgba(124, 156, 255, 0.06); }
 .rr-reveal-chip {
@@ -1209,6 +1212,8 @@ tr.detail-row > td {
 
 /* ---- tabela ---- */
 .rr-tabela-h { display: flex; justify-content: space-between; align-items: baseline; font-weight: 800; font-size: 18px; margin-bottom: 14px; }
+.rr-tabela-h .muted { font-size: 12px; font-weight: 600; }
+.rr-prov { font-size: 12px; font-weight: 800; color: var(--red); }
 .rr-rank {
   display: flex; align-items: center; gap: 10px; padding: 12px; margin-bottom: 10px;
   border-radius: 16px; background: var(--bg-2); border: 1px solid var(--border);

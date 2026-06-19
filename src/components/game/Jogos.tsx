@@ -2,7 +2,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useGame, allPicks, dayList, matchesOfDay, myPick, mySpin, claimedInMatch, iWasRobbed } from '../../game/store';
-import { isOpen, hasStarted, takenInMatch, usedByFriendOnDay, pickOrder, turnBlockedBy, canChangePick } from '../../game/scoring';
+import { isOpen, hasStarted, matchPhase, takenInMatch, usedByFriendOnDay, pickOrder, turnBlockedBy, canChangePick } from '../../game/scoring';
 import { FRIENDS } from '../../game/config';
 import { ajudaMeta } from '../../game/wheel';
 import { dayLabel, dayNum, kickLabel, relToday } from '../../game/format';
@@ -314,9 +314,10 @@ function Side({ team, goals, right }: { team: NationTeam; goals?: number; right?
 }
 
 function MatchState({ match }: { match: Match }) {
-  if (match.status === 'live')
-    return <span className="rr-live"><span className="rr-live-dot" /> {match.minute}'</span>;
-  if (match.status === 'finished') return <span className="rr-ft">Final</span>;
+  const phase = matchPhase(match);
+  if (phase === 'live')
+    return <span className="rr-live"><span className="rr-live-dot" /> {match.minute ? `${match.minute}'` : 'a decorrer'}</span>;
+  if (phase === 'finished') return <span className="rr-ft">Final</span>;
   const rel = relToday(match.day);
   return <span className="rr-soon">{rel === 'hoje' ? kickLabel(match.kickoff) : '—'}</span>;
 }
@@ -346,10 +347,15 @@ function teamByCode(match: Match, code: string): NationTeam {
 
 /** Revela a escolha de cada amigo (depois do jogo começar). */
 function RevealPicks({ match, picks, meId }: { match: Match; picks: ReturnType<typeof allPicks>; meId: string }) {
-  const finished = match.status === 'finished';
+  const finished = matchPhase(match) === 'finished';
   return (
     <div className="rr-reveal">
-      <div className="rr-reveal-h">🔓 Escolhas de cada um</div>
+      <div className="rr-reveal-h">
+        🔓 Escolhas de cada um
+        <span className={`rr-reveal-tag ${finished ? 'final' : 'live'}`}>
+          {finished ? 'notas definitivas' : 'notas provisórias'}
+        </span>
+      </div>
       {FRIENDS.map((f) => {
         const fp = picks.find((p) => p.matchId === match.id && p.friendId === f.id);
         const fb = fp ? findFootballer(match, fp.footballerId) : null;

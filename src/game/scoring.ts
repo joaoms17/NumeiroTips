@@ -24,6 +24,25 @@ export function hasStarted(match: Match, now: number = Date.now()): boolean {
   return Number.isFinite(t) && now >= t;
 }
 
+/** ~2h15 após o início, um jogo é dado como TERMINADO (notas definitivas). */
+const FULLTIME_MS = 135 * 60_000;
+export type MatchPhase = 'upcoming' | 'live' | 'finished';
+
+/**
+ * Fase do jogo. O status explícito ('live'/'finished') tem prioridade; senão
+ * (jogos do calendário ficam 'upcoming') decide-se pela HORA:
+ *  - antes do início → upcoming
+ *  - do início até ~2h15 depois → live (notas provisórias)
+ *  - depois → finished (notas definitivas)
+ */
+export function matchPhase(match: Match, now: number = Date.now()): MatchPhase {
+  if (match.status === 'finished') return 'finished';
+  if (match.status === 'live') return 'live';
+  const t = new Date(match.kickoff).getTime();
+  if (!Number.isFinite(t) || now < t) return 'upcoming';
+  return now >= t + FULLTIME_MS ? 'finished' : 'live';
+}
+
 /** Rating de um jogador num jogo (0 se não jogou / sem rating). */
 export function ratingOf(match: Match, footballerId: string): number {
   return match.ratings?.[footballerId] ?? 0;
@@ -158,15 +177,15 @@ export function standings(friends: Friend[], matches: Match[], picks: Pick[]): S
     for (const p of picks) {
       if (p.friendId !== friend.id) continue;
       const m = byId.get(p.matchId);
-      if (!m || m.status !== 'finished') continue;
+      if (!m || matchPhase(m) === 'upcoming') continue; // conta live (provisório) + terminado
       const r = ratingOf(m, p.footballerId);
       total += r;
       if (r > 0) scored++;
       if (r > best) best = r;
     }
-    // não escolheu → leva o pior rating de cada jogo terminado que ignorou
+    // não escolheu → leva o pior rating de cada jogo TERMINADO que ignorou
     for (const m of matches) {
-      if (m.status !== 'finished' || submitted.get(friend.id)!.has(m.id)) continue;
+      if (matchPhase(m) !== 'finished' || submitted.get(friend.id)!.has(m.id)) continue;
       total += worstRatingOf(m);
     }
     return { friend, total: round1(total), picks: scored, best: round1(best) };
@@ -215,7 +234,7 @@ export function standingsWithHelps(
   for (const f of friends) {
     for (const [matchId, fb] of eff.get(f.id)!) {
       const m = byId.get(matchId);
-      if (!m || m.status !== 'finished') continue;
+      if (!m || matchPhase(m) === 'upcoming') continue; // live (provisório) + terminado
       let e = ratingOf(m, fb);
       const dois = has(f.id, 'dois', matchId);
       if (dois?.secondId) e = Math.max(e, ratingOf(m, dois.secondId));
@@ -228,7 +247,7 @@ export function standingsWithHelps(
   for (const h of helps) {
     if (h.ajuda !== 'tira' || !h.targetFootballerId) continue;
     const m = byId.get(h.matchId);
-    if (!m || m.status !== 'finished') continue;
+    if (!m || matchPhase(m) === 'upcoming') continue;
     for (const f of friends) {
       if (eff.get(f.id)?.get(h.matchId) === h.targetFootballerId) {
         const k = `${f.id}|${h.matchId}`;
@@ -250,7 +269,7 @@ export function standingsWithHelps(
       if (e > best) best = e;
     }
     for (const m of matches) {
-      if (m.status !== 'finished') continue;
+      if (matchPhase(m) !== 'finished') continue; // penalização só com o jogo terminado
       if (submitted.get(friend.id)!.has(m.id)) continue; // fez palpite (mesmo que roubado)
       if (eff.get(friend.id)!.has(m.id)) continue; // ganhou jogador via roubo
       total += worstRatingOf(m);
