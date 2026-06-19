@@ -17,6 +17,13 @@ export function isOpen(match: Match): boolean {
   return match.status === 'upcoming';
 }
 
+/** O jogo já começou? Status não-upcoming OU a hora de início já passou. */
+export function hasStarted(match: Match, now: number = Date.now()): boolean {
+  if (match.status !== 'upcoming') return true;
+  const t = new Date(match.kickoff).getTime();
+  return Number.isFinite(t) && now >= t;
+}
+
 /** Rating de um jogador num jogo (0 se não jogou / sem rating). */
 export function ratingOf(match: Match, footballerId: string): number {
   return match.ratings?.[footballerId] ?? 0;

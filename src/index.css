@@ -1148,6 +1148,21 @@ tr.detail-row > td {
 .rr-change { background: none; border: 1px solid var(--border-strong); color: var(--fg-1); border-radius: 10px; padding: 6px 12px; font-weight: 700; cursor: pointer; }
 .rr-lock { font-size: 18px; }
 
+/* ---- revelação das escolhas (depois do jogo começar) ---- */
+.rr-reveal { margin-top: 10px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.rr-reveal-h { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--fg-2); padding: 8px 12px; background: var(--bg-3); }
+.rr-reveal-row { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-top: 1px solid var(--border); }
+.rr-reveal-row.me { background: rgba(124, 156, 255, 0.06); }
+.rr-reveal-chip {
+  min-width: 26px; height: 22px; padding: 0 6px; border-radius: 11px; display: grid; place-items: center;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.5px; color: var(--c);
+  background: var(--bg-3); border: 1px solid var(--c); flex-shrink: 0;
+}
+.rr-reveal-name { font-weight: 700; flex: 1; }
+.rr-reveal-team { display: inline-flex; }
+.rr-reveal-rating { font-size: 18px; font-weight: 900; color: var(--red); }
+.rr-reveal-rating.final { color: var(--green); }
+
 /* ---- picker (bottom sheet) ---- */
 .rr-modal { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.6); display: flex; align-items: flex-end; }
 .rr-sheet {

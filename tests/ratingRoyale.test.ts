@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canPick, standings, standingsWithHelps, takenInMatch, usedByFriendOnDay, pickOrder, turnBlockedBy } from '../src/game/scoring';
+import { canPick, standings, standingsWithHelps, takenInMatch, usedByFriendOnDay, pickOrder, turnBlockedBy, hasStarted } from '../src/game/scoring';
 import type { Friend, Help, Match, Pick } from '../src/game/types';
 
 const FR: Friend[] = [
@@ -76,6 +76,14 @@ describe('RATING ROYALE — regras de escolha', () => {
   it('não dá para escolher num jogo já começado', () => {
     const closed = base('c1', '2026-06-18', 'live');
     expect(canPick([], [closed], 'a', closed, 'X-7').ok).toBe(false);
+  });
+
+  it('hasStarted: fecha ao passar a hora do jogo', () => {
+    const m = base('s1', '2026-06-20', 'upcoming'); // kickoff 2026-06-20T20:00:00Z
+    expect(hasStarted(m, new Date('2026-06-20T19:00:00Z').getTime())).toBe(false);
+    expect(hasStarted(m, new Date('2026-06-20T20:30:00Z').getTime())).toBe(true);
+    // status live/finished conta sempre como começado
+    expect(hasStarted(base('s2', '2026-06-20', 'live'), new Date('2026-06-20T19:00:00Z').getTime())).toBe(true);
   });
 
   it('escolha válida passa', () => {

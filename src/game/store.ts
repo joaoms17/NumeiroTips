@@ -9,7 +9,7 @@
 import { create } from 'zustand';
 import type { AjudaId, Footballer, Match, MatchPatch, Pick, SpinRec } from './types';
 import { FRIENDS } from './config';
-import { canPick, byKickoff, standingsWithHelps, helpsFromSpins, takenInMatch, pickOrder, turnBlockedBy } from './scoring';
+import { canPick, byKickoff, standingsWithHelps, helpsFromSpins, takenInMatch, pickOrder, turnBlockedBy, hasStarted } from './scoring';
 import { spinAjuda, ajudaMeta } from './wheel';
 import { isOnline, pushPick, pushSpin, pushPatch, pushPin, clearPicksAndSpins } from './online';
 import { clearFixturesCache } from './liveFixtures';
@@ -247,6 +247,10 @@ export const useGame = create<GameState>((set, get) => ({
     if (!meId) return;
     const match = matches.find((m) => m.id === matchId);
     if (!match) return;
+    if (hasStarted(match)) {
+      set({ flash: { kind: 'err', text: '⛔ O jogo já começou — escolhas fechadas.' } });
+      return;
+    }
     // respeita a ordem de escolha rotativa
     const waiting = turnBlockedBy(picksOf(s), pickOrder(FRIENDS, matches, match), matchId, meId);
     if (waiting) {
