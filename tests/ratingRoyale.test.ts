@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canPick, standings, standingsWithHelps, takenInMatch, usedByFriendOnDay, pickOrder } from '../src/game/scoring';
+import { canPick, standings, standingsWithHelps, takenInMatch, usedByFriendOnDay, pickOrder, turnBlockedBy } from '../src/game/scoring';
 import type { Friend, Help, Match, Pick } from '../src/game/types';
 
 const FR: Friend[] = [
@@ -87,6 +87,18 @@ describe('RATING ROYALE — regras de escolha', () => {
     const second = pickOrder(FR, matches, open2).map((f) => f.id);
     expect(first[0]).toBe('a');
     expect(second[0]).toBe('b'); // rodou
+  });
+
+  it('só se pode escolher na sua vez (ordem respeitada)', () => {
+    const order = pickOrder(FR, matches, open); // [a, b, c, d]
+    // ninguém escolheu → 'b' está bloqueado pelo 'a'
+    expect(turnBlockedBy([], order, 'o1', 'b')?.id).toBe('a');
+    // 'a' é o primeiro → livre
+    expect(turnBlockedBy([], order, 'o1', 'a')).toBeNull();
+    // depois de 'a' escolher, 'b' fica livre mas 'c' ainda espera por 'b'
+    const picks = [{ friendId: 'a', matchId: 'o1', footballerId: 'X-7', at: '' }];
+    expect(turnBlockedBy(picks, order, 'o1', 'b')).toBeNull();
+    expect(turnBlockedBy(picks, order, 'o1', 'c')?.id).toBe('b');
   });
 });
 

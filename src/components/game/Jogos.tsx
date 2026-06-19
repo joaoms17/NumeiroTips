@@ -1,7 +1,7 @@
 /** Jogos do dia + escolha do jogador (rotativo) + ajudas da roda. Mobile, animado. */
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useGame, allPicks, dayList, matchesOfDay, myPick, mySpin, claimedInMatch, iWasRobbed } from '../../game/store';
-import { isOpen, ratingOf, takenInMatch, usedByFriendOnDay, pickOrder } from '../../game/scoring';
+import { isOpen, ratingOf, takenInMatch, usedByFriendOnDay, pickOrder, turnBlockedBy } from '../../game/scoring';
 import { FRIENDS } from '../../game/config';
 import { ajudaMeta } from '../../game/wheel';
 import { dayLabel, dayNum, kickLabel, relToday } from '../../game/format';
@@ -101,6 +101,9 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
   const liveRating =
     match.status === 'live' && pick && !robbed ? match.ratings?.[pick.footballerId] ?? null : null;
   const order = pickOrder(FRIENDS, allMatches, match);
+  const pickedIds = new Set(picks.filter((p) => p.matchId === match.id).map((p) => p.friendId));
+  const currentTurn = order.find((f) => !pickedIds.has(f.id)) ?? null;
+  const waitingFor = isOpen(match) ? turnBlockedBy(picks, order, match.id, meId) : null;
 
   const ajuda = spinRec && spinRec.ajuda !== 'nenhuma' ? ajudaMeta(spinRec.ajuda) : null;
   const helpUnused = !!ajuda && !spinRec!.matchId;
@@ -130,7 +133,12 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
 
       <div className="rr-order">
         {order.map((f, i) => (
-          <span key={f.id} className="rr-order-chip" style={{ '--c': f.color } as CSSProperties} title={`${i + 1}º a escolher — ${f.name}`}>
+          <span
+            key={f.id}
+            className={`rr-order-chip ${pickedIds.has(f.id) ? 'done' : ''} ${currentTurn?.id === f.id && isOpen(match) ? 'turn' : ''}`}
+            style={{ '--c': f.color } as CSSProperties}
+            title={`${i + 1}º a escolher — ${f.name}${pickedIds.has(f.id) ? ' (já escolheu)' : ''}`}
+          >
             {f.initials}
           </span>
         ))}
@@ -162,6 +170,8 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
             <span className="rr-lock">🔒</span>
           )}
         </div>
+      ) : isOpen(match) && waitingFor ? (
+        <div className="rr-wait muted">⏳ aguarda a vez de <b>{waitingFor.initials}</b> · {waitingFor.name}</div>
       ) : isOpen(match) ? (
         <button className="rr-choose" onClick={() => setPicker('pick')}>＋ Escolher jogador</button>
       ) : match.status === 'finished' ? (
