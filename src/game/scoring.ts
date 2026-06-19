@@ -102,6 +102,25 @@ export function byKickoff(a: Match, b: Match): number {
   return new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
 }
 
+/**
+ * Vez de escolha: respeita a ordem rotativa. Devolve o amigo ANTERIOR na ordem
+ * que ainda não escolheu neste jogo (bloqueia), ou null se já é a vez de
+ * `friendId` (ou se ele já escolheu).
+ */
+export function turnBlockedBy(
+  picks: Pick[],
+  order: Friend[],
+  matchId: string,
+  friendId: string,
+): Friend | null {
+  const picked = new Set(picks.filter((p) => p.matchId === matchId).map((p) => p.friendId));
+  for (const f of order) {
+    if (f.id === friendId) return null; // chegou a mim sem bloqueios
+    if (!picked.has(f.id)) return f;     // alguém antes ainda não escolheu
+  }
+  return null;
+}
+
 /** Classificação geral = soma de ratings por amigo. */
 export function standings(friends: Friend[], matches: Match[], picks: Pick[]): StandingRow[] {
   const byId = new Map(matches.map((m) => [m.id, m]));

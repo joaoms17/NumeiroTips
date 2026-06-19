@@ -1113,7 +1113,15 @@ tr.detail-row > td {
   font-size: 11px; font-weight: 800; letter-spacing: 0.5px; color: var(--c);
   background: var(--bg-3); border: 1px solid var(--c);
 }
+.rr-order-chip.done { opacity: 0.3; }
+.rr-order-chip.turn { box-shadow: 0 0 0 2px var(--c); animation: rr-turn-pulse 1.4s ease-in-out infinite; }
+@keyframes rr-turn-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--c); }
+  50% { box-shadow: 0 0 0 2px var(--c), 0 0 12px -1px var(--c); }
+}
 .rr-order-lbl { font-size: 10px; margin-left: 4px; }
+.rr-wait { text-align: center; padding: 11px; font-size: 13px; margin-top: 10px; border: 1px dashed var(--border-strong); border-radius: 14px; }
+.rr-wait b { color: var(--fg-0); }
 
 .rr-choose {
   width: 100%; margin-top: 10px; padding: 12px; border-radius: 14px; cursor: pointer;
