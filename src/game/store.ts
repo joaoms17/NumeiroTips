@@ -127,9 +127,30 @@ function mergePatch(prev: MatchPatch | undefined, next: MatchPatch): MatchPatch 
 const sortedDays = (matches: Match[]) =>
   [...new Set(matches.map((m) => m.day))].sort();
 
+/**
+ * Data "de hoje" (YYYY-MM-DD, hora LOCAL) com viragem às 07h: da meia-noite até
+ * às 06:59 ainda conta como o dia anterior, para os jogos que acabam de
+ * madrugada não saltarem logo para o dia seguinte.
+ */
+function effectiveToday(now: Date = new Date()): string {
+  const shifted = new Date(now.getTime() - 7 * 60 * 60 * 1000);
+  const y = shifted.getFullYear();
+  const m = String(shifted.getMonth() + 1).padStart(2, '0');
+  const d = String(shifted.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function defaultDay(matches: Match[]): string {
-  const open = [...matches].sort(byKickoff).find((m) => m.status !== 'finished');
-  return open?.day ?? sortedDays(matches).slice(-1)[0] ?? '';
+  const days = sortedDays(matches);
+  if (days.length === 0) return '';
+  const today = effectiveToday();
+  // 1) há jogos hoje (viragem às 07h) → abre nesse dia
+  if (days.includes(today)) return today;
+  // 2) senão, o próximo dia com jogos a partir de hoje
+  const upcoming = days.find((d) => d >= today);
+  if (upcoming) return upcoming;
+  // 3) senão (já passou tudo), o último dia
+  return days[days.length - 1];
 }
 
 export type FixturesStatus = 'loading' | 'ready' | 'empty';
