@@ -62,8 +62,21 @@ export interface Match {
 export interface Pick {
   friendId: string;
   matchId: string;
+  /** 1ª preferência (retrocompatibilidade + fallback). === prefs[0] quando há prefs. */
   footballerId: string;
+  /** Lista ORDENADA de preferências (até 5). Submetida às cegas; resolvida ao apito. */
+  prefs?: string[];
   at: string; // ISO de quando escolheu
+}
+
+/** Escolha EFETIVA de um amigo num jogo, já resolvida (depois do apito). */
+export interface ResolvedPick {
+  friendId: string;
+  matchId: string;
+  /** Jogador atribuído (undefined se todas as preferências ficaram tomadas). */
+  footballerId?: string;
+  /** 2º jogador, só com a ajuda 'dois' (conta o melhor dos dois). */
+  secondId?: string;
 }
 
 export interface StandingRow {

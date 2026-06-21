@@ -8,10 +8,17 @@
  *  - não repetir o mesmo jogador no MESMO dia (rotativo);
  *  - só se pode escolher antes do apito (status 'upcoming').
  */
-import type { Friend, Help, Match, Pick, StandingRow } from './types';
+import type { Friend, Help, Match, Pick, ResolvedPick, StandingRow } from './types';
 
 const REDE_MIN = 6.5;
 const TIRA_PENALTY = 2;
+/** Máximo de preferências que cada amigo submete por jogo. */
+export const MAX_PREFS = 5;
+
+/** Lista ordenada de preferências de um palpite (retrocompatível com 1 só id). */
+export function prefsOf(p: Pick): string[] {
+  return p.prefs && p.prefs.length ? p.prefs : p.footballerId ? [p.footballerId] : [];
+}
 
 export function isOpen(match: Match): boolean {
   return match.status === 'upcoming';
@@ -166,42 +173,64 @@ export function canChangePick(
   return true;
 }
 
-/** Classificação geral = soma de ratings por amigo. */
-export function standings(friends: Friend[], matches: Match[], picks: Pick[]): StandingRow[] {
-  const byId = new Map(matches.map((m) => [m.id, m]));
-  const submitted = submittedSets(friends, picks);
-  const rows: StandingRow[] = friends.map((friend) => {
-    let total = 0;
-    let scored = 0;
-    let best = 0;
-    for (const p of picks) {
-      if (p.friendId !== friend.id) continue;
-      const m = byId.get(p.matchId);
-      if (!m || matchPhase(m) === 'upcoming') continue; // conta live (provisório) + terminado
-      const r = ratingOf(m, p.footballerId);
-      total += r;
-      if (r > 0) scored++;
-      if (r > best) best = r;
-    }
-    // não escolheu → leva o pior rating de cada jogo TERMINADO que ignorou
-    for (const m of matches) {
-      if (matchPhase(m) !== 'finished' || submitted.get(friend.id)!.has(m.id)) continue;
-      total += worstRatingOf(m);
-    }
-    return { friend, total: round1(total), picks: scored, best: round1(best) };
-  });
-  // ordena por total desc; desempate por melhor individual, depois nº de jogos
-  return rows.sort((a, b) => b.total - a.total || b.best - a.best || b.picks - a.picks);
-}
-
 export function round1(x: number): number {
   return Math.round(x * 10) / 10;
 }
 
 /**
- * Classificação com as AJUDAS da roda aplicadas.
- * Ordem: 1) roubo reatribui o jogador (e tira ao dono); 2) rede/dois ajustam o
- * que cada um ganha; 3) tira-2 desconta a quem tiver o jogador-alvo.
+ * Resolve as escolhas EFETIVAS de um jogo a partir das listas de preferências.
+ * Ordem: quem usou ROUBO resolve primeiro (prioridade), na ordem rotativa entre
+ * si; depois os restantes na ordem rotativa. Cada um leva a preferência mais
+ * alta ainda livre. A ajuda 'dois' consome um 2º jogador (a preferência seguinte
+ * disponível) e mais tarde conta o melhor dos dois.
+ */
+export function resolveMatch(
+  friends: Friend[],
+  matches: Match[],
+  match: Match,
+  picks: Pick[],
+  helps: Help[],
+): ResolvedPick[] {
+  const prefByFriend = new Map<string, string[]>();
+  for (const p of picks) if (p.matchId === match.id) prefByFriend.set(p.friendId, prefsOf(p));
+
+  const hasHelp = (friendId: string, ajuda: string) =>
+    helps.some((h) => h.ajuda === ajuda && h.friendId === friendId && h.matchId === match.id);
+
+  const rotative = pickOrder(friends, matches, match);
+  const order = [
+    ...rotative.filter((f) => hasHelp(f.id, 'rouba')), // roubo → prioridade
+    ...rotative.filter((f) => !hasHelp(f.id, 'rouba')),
+  ];
+
+  const taken = new Set<string>();
+  const out: ResolvedPick[] = [];
+  for (const f of order) {
+    const prefs = prefByFriend.get(f.id);
+    if (!prefs || prefs.length === 0) continue; // não submeteu
+    const primary = prefs.find((id) => !taken.has(id));
+    if (primary) taken.add(primary);
+    let second: string | undefined;
+    if (hasHelp(f.id, 'dois')) {
+      second = prefs.find((id) => !taken.has(id) && id !== primary);
+      if (second) taken.add(second);
+    }
+    out.push({ friendId: f.id, matchId: match.id, footballerId: primary, secondId: second });
+  }
+  return out;
+}
+
+/** Classificação geral = soma de ratings por amigo (sem ajudas). */
+export function standings(friends: Friend[], matches: Match[], picks: Pick[]): StandingRow[] {
+  return standingsWithHelps(friends, matches, picks, []);
+}
+
+/**
+ * Classificação com as listas de preferências resolvidas + AJUDAS aplicadas.
+ * Por jogo (não-upcoming): resolve as escolhas efetivas, soma o rating (dois →
+ * melhor dos dois; rede → mínimo 6.5; tira-2 → desconta ao alvo). Quem não
+ * submeteu — ou ficou sem jogador (todas as preferências tomadas) — leva a pior
+ * nota do jogo, só quando o jogo termina.
  */
 export function standingsWithHelps(
   friends: Friend[],
@@ -209,56 +238,35 @@ export function standingsWithHelps(
   picks: Pick[],
   helps: Help[],
 ): StandingRow[] {
-  const byId = new Map(matches.map((m) => [m.id, m]));
-
-  // escolha efetiva: friendId -> (matchId -> footballerId)
-  const eff = new Map<string, Map<string, string>>();
-  for (const f of friends) eff.set(f.id, new Map());
-  for (const p of picks) eff.get(p.friendId)?.set(p.matchId, p.footballerId);
-
-  // 1) ROUBO: o autor fica com o jogador; o dono anterior perde-o nesse jogo.
-  for (const h of helps) {
-    if (h.ajuda !== 'rouba' || !h.targetFootballerId) continue;
-    for (const f of friends) {
-      if (f.id === h.friendId) continue;
-      if (eff.get(f.id)?.get(h.matchId) === h.targetFootballerId) eff.get(f.id)!.delete(h.matchId);
-    }
-    eff.get(h.friendId)?.set(h.matchId, h.targetFootballerId);
-  }
-
-  const has = (friendId: string, ajuda: string, matchId: string) =>
-    helps.find((h) => h.ajuda === ajuda && h.friendId === friendId && h.matchId === matchId);
-
-  // 2) ganho por (amigo, jogo terminado) com rede/dois
+  const submitted = submittedSets(friends, picks);
   const earned = new Map<string, number>(); // `${friendId}|${matchId}`
-  for (const f of friends) {
-    for (const [matchId, fb] of eff.get(f.id)!) {
-      const m = byId.get(matchId);
-      if (!m || matchPhase(m) === 'upcoming') continue; // live (provisório) + terminado
-      let e = ratingOf(m, fb);
-      const dois = has(f.id, 'dois', matchId);
-      if (dois?.secondId) e = Math.max(e, ratingOf(m, dois.secondId));
-      if (has(f.id, 'rede', matchId)) e = Math.max(e, REDE_MIN);
-      earned.set(`${f.id}|${matchId}`, e);
-    }
-  }
 
-  // 3) TIRA-2: desconta a quem tiver o jogador-alvo nesse jogo terminado.
-  for (const h of helps) {
-    if (h.ajuda !== 'tira' || !h.targetFootballerId) continue;
-    const m = byId.get(h.matchId);
-    if (!m || matchPhase(m) === 'upcoming') continue;
-    for (const f of friends) {
-      if (eff.get(f.id)?.get(h.matchId) === h.targetFootballerId) {
-        const k = `${f.id}|${h.matchId}`;
-        earned.set(k, Math.max(0, (earned.get(k) ?? 0) - TIRA_PENALTY));
+  for (const m of matches) {
+    if (matchPhase(m) === 'upcoming') continue; // live (provisório) + terminado
+    const resolved = resolveMatch(friends, matches, m, picks, helps);
+    for (const rp of resolved) {
+      let e: number;
+      if (rp.footballerId) {
+        e = ratingOf(m, rp.footballerId);
+        if (rp.secondId) e = Math.max(e, ratingOf(m, rp.secondId)); // dois: conta o melhor
+      } else {
+        e = worstRatingOf(m); // submeteu mas ficou sem jogador → pior nota
+      }
+      if (helps.some((h) => h.ajuda === 'rede' && h.friendId === rp.friendId && h.matchId === m.id))
+        e = Math.max(e, REDE_MIN);
+      earned.set(`${rp.friendId}|${m.id}`, e);
+    }
+    // TIRA-2: desconta a quem tiver o jogador-alvo neste jogo.
+    for (const h of helps) {
+      if (h.ajuda !== 'tira' || !h.targetFootballerId || h.matchId !== m.id) continue;
+      for (const rp of resolved) {
+        if (rp.footballerId === h.targetFootballerId || rp.secondId === h.targetFootballerId) {
+          const k = `${rp.friendId}|${m.id}`;
+          earned.set(k, Math.max(0, (earned.get(k) ?? 0) - TIRA_PENALTY));
+        }
       }
     }
   }
-
-  // 4) NÃO ESCOLHEU: pior rating do jogo a quem não fez palpite (original — quem
-  //    foi roubado já submeteu, por isso mantém a mecânica do roubo, não esta).
-  const submitted = submittedSets(friends, picks);
 
   const rows: StandingRow[] = friends.map((friend) => {
     let total = 0, scored = 0, best = 0;
@@ -268,10 +276,10 @@ export function standingsWithHelps(
       if (e > 0) scored++;
       if (e > best) best = e;
     }
+    // não submeteu → pior nota de cada jogo TERMINADO que ignorou
     for (const m of matches) {
-      if (matchPhase(m) !== 'finished') continue; // penalização só com o jogo terminado
-      if (submitted.get(friend.id)!.has(m.id)) continue; // fez palpite (mesmo que roubado)
-      if (eff.get(friend.id)!.has(m.id)) continue; // ganhou jogador via roubo
+      if (matchPhase(m) !== 'finished') continue;
+      if (submitted.get(friend.id)!.has(m.id)) continue;
       total += worstRatingOf(m);
     }
     return { friend, total: round1(total), picks: scored, best: round1(best) };
