@@ -30,9 +30,13 @@ export async function fetchState(): Promise<{ picks: Pick[]; spins: Record<strin
     supa.from('rr_picks').select('*').eq('league', LEAGUE),
     supa.from('rr_spins').select('*').eq('league', LEAGUE),
   ]);
-  const picks = ((picksRes.data ?? []) as PickRow[]).map((r) => ({
-    friendId: r.friend_id, matchId: r.match_id, footballerId: r.footballer_id, at: r.updated_at ?? '',
-  }));
+  const picks = ((picksRes.data ?? []) as PickRow[]).map((r) => {
+    const prefs = decodePrefs(r.footballer_id);
+    return {
+      friendId: r.friend_id, matchId: r.match_id,
+      footballerId: prefs[0] ?? '', prefs, at: r.updated_at ?? '',
+    };
+  });
   const spins: Record<string, SpinRec> = {};
   for (const r of (spinsRes.data ?? []) as SpinRow[]) {
     spins[`${r.friend_id}|${r.day}`] = {
@@ -45,11 +49,26 @@ export async function fetchState(): Promise<{ picks: Pick[]; spins: Record<strin
   return { picks, spins };
 }
 
+/**
+ * Lista de preferências guardada no campo `footballer_id` (text) como array
+ * JSON — evita migração de schema. Retrocompatível: valores antigos (id simples)
+ * lêem-se como lista de 1.
+ */
+function decodePrefs(raw: string): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.filter((x): x is string => typeof x === 'string');
+  } catch { /* id simples (formato antigo) */ }
+  return [raw];
+}
+
 export async function pushPick(p: Pick): Promise<void> {
   const supa = getSupabase();
   if (!supa) return;
+  const prefs = p.prefs && p.prefs.length ? p.prefs : p.footballerId ? [p.footballerId] : [];
   await supa.from('rr_picks').upsert(
-    { league: LEAGUE, friend_id: p.friendId, match_id: p.matchId, footballer_id: p.footballerId, updated_at: new Date().toISOString() },
+    { league: LEAGUE, friend_id: p.friendId, match_id: p.matchId, footballer_id: JSON.stringify(prefs), updated_at: new Date().toISOString() },
     { onConflict: 'league,friend_id,match_id' },
   );
 }

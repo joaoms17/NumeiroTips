@@ -7,9 +7,9 @@
  * no Supabase (modo online).
  */
 import { create } from 'zustand';
-import type { AjudaId, Footballer, Match, MatchPatch, Pick, SpinRec } from './types';
+import type { AjudaId, Footballer, Match, MatchPatch, Pick, ResolvedPick, SpinRec } from './types';
 import { FRIENDS } from './config';
-import { canPick, byKickoff, standingsWithHelps, helpsFromSpins, takenInMatch, pickOrder, turnBlockedBy, canChangePick, hasStarted } from './scoring';
+import { byKickoff, standingsWithHelps, helpsFromSpins, takenInMatch, hasStarted, resolveMatch, MAX_PREFS } from './scoring';
 import { spinAjuda, ajudaMeta } from './wheel';
 import { isOnline, pushPick, pushSpin, pushPatch, pushPin, clearPicksAndSpins } from './online';
 import { clearFixturesCache } from './liveFixtures';
@@ -182,7 +182,8 @@ export interface GameState {
   login: (name: string, pin: string) => boolean;
   logout: () => void;
   selectDay: (day: string) => void;
-  choose: (matchId: string, footballerId: string) => void;
+  /** Submete a lista ORDENADA de preferências (até 5) para um jogo. */
+  submitPrefs: (matchId: string, prefs: string[]) => void;
   /** Roda a roda do dia (1×/dia). Devolve a ajuda sorteada. */
   spin: (day: string) => AjudaId;
   /** Aplica a ajuda do dia a um jogo (com 2º jogador / alvo conforme o tipo). */
@@ -266,7 +267,7 @@ export const useGame = create<GameState>((set, get) => ({
 
   selectDay: (day) => set({ selectedDay: day }),
 
-  choose: (matchId, footballerId) => {
+  submitPrefs: (matchId, prefs) => {
     const s = get();
     const { meId, matches } = s;
     if (!meId) return;
@@ -276,52 +277,22 @@ export const useGame = create<GameState>((set, get) => ({
       set({ flash: { kind: 'err', text: '⛔ O jogo já começou — escolhas fechadas.' } });
       return;
     }
-    const order = pickOrder(FRIENDS, matches, match);
-    const cur = picksOf(s);
-    // pick órfão (jogador já não existe no plantel) NÃO conta como escolhido →
-    // pode reescolher livremente, sem ficar trancado.
-    const lineupIds = new Set([...match.lineup.home, ...match.lineup.away].map((f) => f.id));
-    const myRec = cur.find((p) => p.matchId === matchId && p.friendId === meId);
-    // pick órfão (jogador sumiu) OU roubado → não conta como escolha: reescolhe livremente
-    const alreadyPicked = !!myRec && lineupIds.has(myRec.footballerId) && !iWasRobbed(s, matchId);
-    if (alreadyPicked) {
-      // trocar: só enquanto ninguém a seguir já tiver escolhido
-      if (!canChangePick(cur, order, matchId, meId)) {
-        set({ flash: { kind: 'err', text: '🔒 Já não podes trocar — alguém a seguir já escolheu.' } });
-        return;
-      }
-    } else {
-      // primeira escolha: respeita a vez (ordem rotativa)
-      const waiting = turnBlockedBy(cur, order, matchId, meId);
-      if (waiting) {
-        set({ flash: { kind: 'err', text: `⏳ É a vez de ${waiting.name} — espera.` } });
-        return;
-      }
-    }
-    const check = canPick(picksOf(s), matches, meId, match, footballerId);
-    if (!check.ok) {
-      set({ flash: { kind: 'err', text: check.reason ?? 'Não dá.' } });
+    const clean = [...new Set(prefs.filter(Boolean))].slice(0, MAX_PREFS); // dedup + limite
+    if (clean.length === 0) {
+      set({ flash: { kind: 'err', text: 'Escolhe pelo menos 1 jogador.' } });
       return;
     }
-    // jogador roubado por outro neste jogo não pode ser reescolhido
-    const robbed = helpsFromSpins(spinsOf(s)).some(
-      (h) => h.ajuda === 'rouba' && h.matchId === matchId && h.friendId !== meId && h.targetFootballerId === footballerId,
-    );
-    if (robbed) {
-      set({ flash: { kind: 'err', text: 'Esse jogador foi roubado — escolhe outro.' } });
-      return;
-    }
-    const pick: Pick = { friendId: meId, matchId, footballerId, at: new Date().toISOString() };
+    const pick: Pick = { friendId: meId, matchId, footballerId: clean[0], prefs: clean, at: new Date().toISOString() };
     if (s.online) {
       const remotePicks = upsertPick(s.remotePicks, pick);
-      set({ remotePicks, flash: { kind: 'ok', text: 'Escolha registada! 🔒' } });
+      set({ remotePicks, flash: { kind: 'ok', text: 'Preferências guardadas! 🔒' } });
       void pushPick(pick);
     } else {
       const key = `${meId}:${matchId}`;
       const next = s.userPicks.filter((p) => `${p.friendId}:${p.matchId}` !== key);
       next.push(pick);
       saveUserPicks(next);
-      set({ userPicks: next, flash: { kind: 'ok', text: 'Escolha registada! 🔒' } });
+      set({ userPicks: next, flash: { kind: 'ok', text: 'Preferências guardadas! 🔒' } });
     }
   },
 
@@ -449,6 +420,22 @@ export function matchesOfDay(s: GameState, day: string): Match[] {
 export function myPick(s: GameState, matchId: string): Pick | undefined {
   if (!s.meId) return undefined;
   return picksOf(s).find((p) => p.matchId === matchId && p.friendId === s.meId);
+}
+/** A minha lista ORDENADA de preferências para um jogo (vazia se ainda não submeti). */
+export function myPrefs(s: GameState, matchId: string): string[] {
+  const mine = myPick(s, matchId);
+  if (!mine) return [];
+  return mine.prefs && mine.prefs.length ? mine.prefs : mine.footballerId ? [mine.footballerId] : [];
+}
+/** Escolhas EFETIVAS resolvidas de um jogo (roubo = prioridade; dois = 2 melhores). */
+export function resolvedForMatch(s: GameState, matchId: string): ResolvedPick[] {
+  const m = s.matches.find((x) => x.id === matchId);
+  if (!m) return [];
+  return resolveMatch(FRIENDS, s.matches, m, picksOf(s), helpsFromSpins(spinsOf(s)));
+}
+/** Ids dos amigos que já submeteram preferências para um jogo (sem revelar quem). */
+export function submittedFriends(s: GameState, matchId: string): Set<string> {
+  return new Set(picksOf(s).filter((p) => p.matchId === matchId).map((p) => p.friendId));
 }
 export function standingsOf(s: GameState) {
   return standingsWithHelps(FRIENDS, s.matches, picksOf(s), helpsFromSpins(spinsOf(s)));
