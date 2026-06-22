@@ -1,7 +1,7 @@
 /** Jogos do dia + escolha do jogador (rotativo) + ajudas da roda. Mobile, animado. */
 import { useEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { useGame, allPicks, allSpins, dayList, matchesOfDay, myPrefs, mySpin, resolvedForMatch, submittedFriends } from '../../game/store';
+import { useGame, allPicks, allSpins, dayList, matchesOfDay, myPrefs, mySpin, priorityOrder, resolvedForMatch, submittedFriends } from '../../game/store';
 import { isOpen, hasStarted, matchPhase, prefsOf, MAX_PREFS } from '../../game/scoring';
 import { FRIENDS } from '../../game/config';
 import { ajudaMeta } from '../../game/wheel';
@@ -96,6 +96,7 @@ export function Jogos() {
 function MatchCard({ match, meId, index }: { match: Match; meId: string; index: number }) {
   const prefs = useGame((s) => myPrefs(s, match.id));
   const submitted = useGame((s) => submittedFriends(s, match.id));
+  const order = useGame((s) => priorityOrder(s, match.id));
   const spinRec = useGame((s) => mySpin(s, match.day));
   const applyHelp = useGame((s) => s.applyHelp);
   const [picker, setPicker] = useState<null | 'pick' | HelpMode>(null);
@@ -133,17 +134,17 @@ function MatchCard({ match, meId, index }: { match: Match; meId: string; index: 
 
       {!started && (
         <div className="rr-order">
-          {FRIENDS.map((f) => (
+          {order.map(({ friend: f, roubo }, i) => (
             <span
               key={f.id}
-              className={`rr-order-chip ${submitted.has(f.id) ? 'done' : ''}`}
+              className={`rr-order-chip ${submitted.has(f.id) ? 'done' : ''} ${roubo ? 'roubo' : ''}`}
               style={{ '--c': f.color } as CSSProperties}
-              title={`${f.name} — ${submitted.has(f.id) ? 'já submeteu' : 'ainda não'}`}
+              title={`${i + 1}º a resolver — ${f.name}${roubo ? ' · 🕵️ roubo (prioridade)' : ''}${submitted.has(f.id) ? ' · já submeteu' : ' · ainda não submeteu'}`}
             >
               {f.initials}
             </span>
           ))}
-          <span className="rr-order-lbl muted">já submeteram (às cegas)</span>
+          <span className="rr-order-lbl muted">ordem de prioridade · ✓ = já submeteu</span>
         </div>
       )}
 

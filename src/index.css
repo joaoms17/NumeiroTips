@@ -1158,7 +1158,9 @@ tr.detail-row > td {
   font-size: 11px; font-weight: 800; letter-spacing: 0.5px; color: var(--c);
   background: var(--bg-3); border: 1px solid var(--c);
 }
-.rr-order-chip.done { opacity: 0.3; }
+.rr-order-chip:not(.done) { opacity: 0.4; } /* ainda não submeteu */
+.rr-order-chip.done { background: var(--c); color: var(--bg-0); opacity: 1; } /* já submeteu */
+.rr-order-chip.roubo { box-shadow: 0 0 0 2px var(--c); } /* roubo = prioridade */
 .rr-order-chip.turn { box-shadow: 0 0 0 2px var(--c); animation: rr-turn-pulse 1.4s ease-in-out infinite; }
 @keyframes rr-turn-pulse {
   0%, 100% { box-shadow: 0 0 0 2px var(--c); }

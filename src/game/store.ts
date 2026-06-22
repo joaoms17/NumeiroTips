@@ -9,7 +9,7 @@
 import { create } from 'zustand';
 import type { AjudaId, Footballer, Match, MatchPatch, Pick, ResolvedPick, SpinRec } from './types';
 import { FRIENDS } from './config';
-import { byKickoff, standingsWithHelps, helpsFromSpins, takenInMatch, hasStarted, resolveMatch, MAX_PREFS } from './scoring';
+import { byKickoff, standingsWithHelps, helpsFromSpins, takenInMatch, hasStarted, resolveMatch, pickOrder, MAX_PREFS } from './scoring';
 import { spinAjuda, ajudaMeta } from './wheel';
 import { isOnline, pushPick, pushSpin, pushPatch, pushPin, clearPicksAndSpins } from './online';
 import { clearFixturesCache } from './liveFixtures';
@@ -436,6 +436,20 @@ export function resolvedForMatch(s: GameState, matchId: string): ResolvedPick[] 
 /** Ids dos amigos que já submeteram preferências para um jogo (sem revelar quem). */
 export function submittedFriends(s: GameState, matchId: string): Set<string> {
   return new Set(picksOf(s).filter((p) => p.matchId === matchId).map((p) => p.friendId));
+}
+/**
+ * Ordem de PRIORIDADE de resolução de um jogo (quem ganha as colisões): roda a
+ * cada jogo (rotativa) e quem usou roubo salta para a frente. É a ordem que a
+ * resolução usa em `resolveMatch`.
+ */
+export function priorityOrder(s: GameState, matchId: string): { friend: typeof FRIENDS[number]; roubo: boolean }[] {
+  const m = s.matches.find((x) => x.id === matchId);
+  const helps = helpsFromSpins(spinsOf(s));
+  const hasRoubo = (fid: string) =>
+    helps.some((h) => h.ajuda === 'rouba' && h.friendId === fid && h.matchId === matchId);
+  const rot = m ? pickOrder(FRIENDS, s.matches, m) : [...FRIENDS];
+  const ordered = [...rot.filter((f) => hasRoubo(f.id)), ...rot.filter((f) => !hasRoubo(f.id))];
+  return ordered.map((f) => ({ friend: f, roubo: hasRoubo(f.id) }));
 }
 export function standingsOf(s: GameState) {
   return standingsWithHelps(FRIENDS, s.matches, picksOf(s), helpsFromSpins(spinsOf(s)));
